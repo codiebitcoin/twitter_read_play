@@ -1,18 +1,23 @@
-# workshop_inner_sdk（clt01）
+# workshop_inner_sdk (clt01)
 
-CLT01 设备（`clt01_embed_backend`）局域网访问 Go SDK：函数式调用、完整配对流程封装、凭据管理、Web 控制台（含 `/config/pair` 授权页）反向代理内嵌。
+Go SDK for LAN access to CLT01 devices (`clt01_embed_backend`): functional API calls, a fully wrapped pairing flow, credential management, and an embedded reverse proxy for the device web console (including the `/config/pair` authorization page).
 
-> 模块名 `workshop_inner_sdk`（原 `workshop_api` 已并入本仓库，作为内联源码维护）。
-> **只支持 1.5.3+ 固件**，接口默认全部走最新版本；测试代码在 `test/` 目录。
+> Module name: `workshop_inner_sdk` (the former `workshop_api` has been merged into this repo and is maintained as inlined source).
+> **Supports firmware 1.5.3+ only.** All interfaces use the latest versions by default; tests live in the `test/` directory.
 
-## 安装
+## Installation
 
-本 SDK 随主仓库以内联源码维护（`third_party/workshop_inner_sdk`），通过主仓库 `go.mod` 的
-`replace workshop_inner_sdk => ./third_party/workshop_inner_sdk` 引用，无需单独安装。
+The SDK is maintained as inlined source inside the main repo (`third_party/workshop_inner_sdk`) and referenced through the main repo's `go.mod`:
 
-## 快速开始
+```
+replace workshop_inner_sdk => ./third_party/workshop_inner_sdk
+```
 
-### 1. 函数式配对（输入 IP → 输入 6 位配对码，后台自动走完整流程）
+No separate installation is needed.
+
+## Quick start
+
+### 1. Functional pairing (enter IP → enter the 6-digit pairing code; the full flow runs automatically)
 
 ```go
 package main
@@ -31,143 +36,143 @@ func main() {
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
     defer cancel()
 
-    // 后台自动执行：ping → bootstrap → pair/request（设备弹配对窗）
-    //   → StdinCodeProvider 等待用户输入 6 位码 → pair/confirm 换取凭据
+    // Runs in the background automatically: ping → bootstrap → pair/request
+    //   (device pops up the pairing window) → StdinCodeProvider waits for the
+    //   user to enter the 6-digit code → pair/confirm exchanges it for credentials
     creds, err := c.Pair(ctx, clt01.StdinCodeProvider{}, clt01.AuthScopePermanent)
     if err != nil {
         panic(err)
     }
 
-    store, _ := clt01.NewStore() // 默认 ~/.clt01sdk/credentials.json
+    store, _ := clt01.NewStore() // defaults to ~/.clt01sdk/credentials.json
     _ = store.Save(creds)
 
-    fmt.Println("配对成功:", creds.DeviceID, creds.UserID)
+    fmt.Println("paired:", creds.DeviceID, creds.UserID)
 }
 ```
 
-GUI 程序自行实现配对码收集：
+GUI programs can supply their own pairing-code collector:
 
 ```go
 creds, err := c.Pair(ctx, clt01.CodeFunc(func(ctx context.Context, challengeID string) (string, error) {
-    return myDialog.AskPairingCode(challengeID) // 返回用户输入的 6 位码
-}), clt01.AuthScopeSession) // session=12 小时短期凭据；permanent=长期
+    return myDialog.AskPairingCode(challengeID) // returns the user-entered 6-digit code
+}), clt01.AuthScopeSession) // session = 12-hour short-lived credentials; permanent = long-lived
 ```
 
-### 2. 已配对设备直接调用（凭据复用）
+### 2. Calling an already-paired device (credential reuse)
 
 ```go
 c, err := clt01.ClientFromStore("192.168.1.10:8081")
 info, err := c.SystemInfo()
 fmt.Println(info.Username, info.Capabilities)
 
-// 通用签名请求
+// Generic signed request
 data, err := c.Do("GET", "/v1/api/data/user/chat/history/dates", nil, "")
-data, err = c.Do("POST", "/v1/api/data/user/chat/text", []byte(`{"text":"你好"}`), clt01.PayloadModeJSON)
+data, err = c.Do("POST", "/v1/api/data/user/chat/text", []byte(`{"text":"hello"}`), clt01.PayloadModeJSON)
 ```
 
-完整接口清单见 `clt01_embed_backend/docs/web/LOCAL_API_REFERENCE.md`。
+For the full endpoint list see `clt01_embed_backend/docs/web/LOCAL_API_REFERENCE.md`.
 
-### 3. 内嵌设备授权页面（/config/pair）
+### 3. Embedding the device authorization page (/config/pair)
 
 ```go
 mux := http.NewServeMux()
-mux.Handle("/", c.ConsoleProxy())          // 反向代理设备控制台
+mux.Handle("/", c.ConsoleProxy())          // reverse proxy for the device console
 http.ListenAndServe("127.0.0.1:8090", mux)
-// 浏览器 / WebView 打开 http://127.0.0.1:8090/config/pair
+// Open http://127.0.0.1:8090/config/pair in a browser / WebView
 ```
 
-或直接拿页面地址给 WebView 加载：`c.ConsoleURL("/config/pair")`。
-页面内配对与签名由设备自带前端完成，凭据存于浏览器 localStorage，与 SDK 凭据独立。
+Or hand the page URL straight to a WebView: `c.ConsoleURL("/config/pair")`.
+Pairing and signing inside the page are handled by the device's own frontend; credentials are stored in the browser's localStorage, independent of SDK credentials.
 
-## API 一览
+## API overview
 
-| 符号 | 说明 |
+| Symbol | Description |
 |---|---|
-| `New(addr) (*Client, error)` | 创建客户端（addr 可带可不带 `http://`） |
-| `Client.Pair(ctx, CodeProvider, scope) (*Credentials, error)` | 完整配对流程（自动串联全部后台调用） |
-| `Client.RequestPairing / ConfirmPairing / CancelPairing` | 配对三步，可拆开自定义编排 |
-| `Client.Ping / Bootstrap` | 免鉴权探测与引导信息 |
-| `Client.SystemInfo()` | 签名获取系统信息 |
-| `Client.Do / GetJSON / PostJSON / GetRaw` | 通用签名请求，返回统一信封 data |
-| `Client.Apply(*Credentials)` | 应用凭据 |
-| `Client.ConsoleProxy() / ConsoleURL(path)` | 内嵌控制台反向代理 / 页面地址 |
-| `Store`（`NewStore / Save / Load / Delete`） | 凭据持久化（0600，默认 `~/.clt01sdk/credentials.json`） |
-| `ClientFromStore(addr)` | 从凭据库直接构建已授权客户端 |
-| `StdinCodeProvider / CodeFunc` | 配对码收集实现 |
-| `MCPServer`（`NewMCPServer / ServeStdio / Handler`） | MCP 服务端模式：stdio / Streamable HTTP（见「MCP 模式」章节） |
-| `Sign(secret, method, path, ts, nonce, payloadMode, bodyHash, userID)` | 暴露签名算法本身 |
-| `Credentials.SessionExpired()` | session 凭据过期判断 |
+| `New(addr) (*Client, error)` | Create a client (`addr` may or may not include `http://`) |
+| `Client.Pair(ctx, CodeProvider, scope) (*Credentials, error)` | Full pairing flow (chains all background calls automatically) |
+| `Client.RequestPairing / ConfirmPairing / CancelPairing` | The three pairing steps, usable individually for custom orchestration |
+| `Client.Ping / Bootstrap` | Unauthenticated probe and bootstrap info |
+| `Client.SystemInfo()` | Signed system-info query |
+| `Client.Do / GetJSON / PostJSON / GetRaw` | Generic signed requests returning the unified envelope `data` |
+| `Client.Apply(*Credentials)` | Apply credentials |
+| `Client.ConsoleProxy() / ConsoleURL(path)` | Embedded console reverse proxy / page URL |
+| `Store` (`NewStore / Save / Load / Delete`) | Credential persistence (0600, default `~/.clt01sdk/credentials.json`) |
+| `ClientFromStore(addr)` | Build an authorized client directly from the credential store |
+| `StdinCodeProvider / CodeFunc` | Pairing-code collector implementations |
+| `MCPServer` (`NewMCPServer / ServeStdio / Handler`) | MCP server mode: stdio / Streamable HTTP (see "MCP mode") |
+| `Sign(secret, method, path, ts, nonce, payloadMode, bodyHash, userID)` | The signing algorithm itself, exported |
+| `Credentials.SessionExpired()` | Expiry check for session credentials |
 
-错误统一为 `*APIError`（`StatusCode` / `Code` / `Message`），可按 `Code`（如 `LOCAL_SESSION_EXPIRED`、`PAIRING_REQUEST_RATE_LIMITED`）分支处理。
+Errors are uniformly `*APIError` (`StatusCode` / `Code` / `Message`); branch on `Code` (e.g. `LOCAL_SESSION_EXPIRED`, `PAIRING_REQUEST_RATE_LIMITED`) as needed.
 
-## 测试
+## Tests
 
-测试代码统一放在 `test/` 目录（外部测试包 `clt01_test`）：
+All tests live in the `test/` directory (external test package `clt01_test`):
 
 ```bash
-# 单元测试（无需设备）
+# Unit tests (no device required)
 go test ./test/
 
-# 在线冒烟（对真实设备，默认跳过）
+# Online smoke tests (against a real device, skipped by default)
 CLT01_LIVE_ADDR=192.168.1.10:8081 \
 CLT01_LIVE_SECRET=<local_secret> CLT01_LIVE_SESSION=<session_id> CLT01_LIVE_USER=<user_id> \
 go test ./test/ -run TestLive -v
 ```
 
-在线用例覆盖：ping/bootstrap、签名请求、坏签名拒绝（`LOCAL_SECRET_MISMATCH`）、pair request→cancel 链路。
+Online cases cover: ping/bootstrap, signed requests, bad-signature rejection (`LOCAL_SECRET_MISMATCH`), and the pair request→cancel chain.
 
-## CLI 示例
+## CLI example
 
 ```bash
-go run ./cmd/clt01-example pair 192.168.1.10:8081             # 交互式配对并保存凭据
-go run ./cmd/clt01-example info 192.168.1.10:8081             # 用已存凭据查询设备
-go run ./cmd/clt01-example console 192.168.1.10:8081 :8090    # 内嵌控制台代理
+go run ./cmd/clt01-example pair 192.168.1.10:8081             # interactive pairing, saves credentials
+go run ./cmd/clt01-example info 192.168.1.10:8081             # query the device with stored credentials
+go run ./cmd/clt01-example console 192.168.1.10:8081 :8090    # embedded console proxy
 ```
 
-## MCP 模式（模型上下文协议服务端）
+## MCP mode (Model Context Protocol server)
 
-SDK 内建 MCP 服务端（零外部依赖，手写 JSON-RPC 2.0），把配对 / 角色配置 / 播报等能力
-以 MCP tools 暴露给 Cursor / Claude Desktop 等模型客户端，对话即可操控设备。
+The SDK ships with a built-in MCP server (zero external dependencies, hand-written JSON-RPC 2.0) that exposes pairing / character config / playback as MCP tools to model clients such as Cursor or Claude Desktop — control the device through conversation.
 
-### 工具清单
+### Tool list
 
-| 工具 | 说明 |
+| Tool | Description |
 |---|---|
-| `clt01_ping` | 检查设备可达（免鉴权 ping + bootstrap） |
-| `clt01_pair_start` | 请求设备弹出 6 位配对码窗口（5 分钟有效） |
-| `clt01_pair_confirm` | 用配对码完成配对并保存凭据（scope=session/permanent） |
-| `clt01_pair_cancel` / `clt01_pair_status` | 取消配对挑战 / 查询本地凭据状态 |
-| `clt01_system_info` | 读取系统信息（需已配对） |
-| `clt01_character_get / set / list` | 读取 / 原子设置（SetInfo 语义）/ 列出角色槽配置 |
-| `clt01_voice_groups` | 音色分组与 voice_id 列表 |
-| `clt01_play_chat` | 播报文本（chat/turns 通道，返回 chat_id） |
-| `clt01_play_state` / `clt01_play_cancel` | 播放状态查询 / 取消播报 |
-| `clt01_tts_say` | TTS 直读（不经角色 LLM 管线） |
-| `clt01_raw_request` | 通用签名请求逃生口（任意 LOCAL API） |
+| `clt01_ping` | Check device reachability (unauthenticated ping + bootstrap) |
+| `clt01_pair_start` | Ask the device to pop up the 6-digit pairing-code window (valid 5 minutes) |
+| `clt01_pair_confirm` | Complete pairing with the code and save credentials (scope=session/permanent) |
+| `clt01_pair_cancel` / `clt01_pair_status` | Cancel a pairing challenge / query local credential status |
+| `clt01_system_info` | Read system info (requires pairing) |
+| `clt01_character_get / set / list` | Read / atomically set (SetInfo semantics) / list character slot config |
+| `clt01_voice_groups` | Voice groups and their voice_id lists |
+| `clt01_play_chat` | Speak text (chat/turns channel, returns chat_id) |
+| `clt01_play_state` / `clt01_play_cancel` | Playback status query / cancel playback |
+| `clt01_tts_say` | Direct TTS (bypasses the character LLM pipeline) |
+| `clt01_raw_request` | Generic signed-request escape hatch (any LOCAL API) |
 
-每个工具参数可选 `addr` 覆盖默认设备地址；签名调用复用 `~/.clt01sdk/credentials.json`。
+Every tool accepts an optional `addr` parameter to override the default device address; signed calls reuse `~/.clt01sdk/credentials.json`.
 
-### 启动
+### Running
 
 ```bash
-# 构建
+# Build
 go build -o ./clt01-mcp ./cmd/clt01-mcp
 
-# 先配对（签名工具需要凭据），或在 MCP 对话里走 pair_start → pair_confirm
+# Pair first (signed tools need credentials), or do pair_start → pair_confirm inside the MCP conversation
 go run ./cmd/clt01-example pair 192.168.1.10:8081
 
-# 方式一：stdio 子进程模式（Cursor / Claude Desktop，推荐）
+# Option 1: stdio subprocess mode (Cursor / Claude Desktop, recommended)
 ./clt01-mcp stdio 192.168.1.10:8081
 
-# 方式二：Streamable HTTP 模式（局域网/远程复用，端点 /mcp，默认监听 :8091）
+# Option 2: Streamable HTTP mode (shared across LAN/remote, endpoint /mcp, listens on :8091 by default)
 ./clt01-mcp http 192.168.1.10:8081 :8091
 ```
 
-设备地址也可用环境变量 `CLT01_ADDR` 指定；stdio 模式协议响应走 stdout、日志走 stderr。
+The device address can also come from the `CLT01_ADDR` environment variable; in stdio mode protocol responses go to stdout and logs to stderr.
 
-### Cursor 接入（stdio）
+### Cursor integration (stdio)
 
-项目 `.cursor/mcp.json` 或全局 `~/.cursor/mcp.json`：
+Project `.cursor/mcp.json` or global `~/.cursor/mcp.json`:
 
 ```json
 {
@@ -180,39 +185,37 @@ go run ./cmd/clt01-example pair 192.168.1.10:8081
 }
 ```
 
-保存后 Cursor 自动拉起子进程。HTTP 模式则添加 "url" 型 MCP，填 `http://127.0.0.1:8091/mcp`
-（无状态实现，无需 session/token）。接入后在对话里即可说「让设备播报xx」「改 1 号角色
-prompt」「查音色列表」等，模型自动选工具调用。
+Cursor launches the subprocess automatically once saved. For HTTP mode, add a "url"-type MCP entry pointing at `http://127.0.0.1:8091/mcp` (stateless implementation, no session/token needed). Once connected you can say things like "have the device announce X", "change slot 1's prompt", or "list the voices", and the model picks the right tool.
 
-## 原子语义操作（推荐入口）
+## Atomic semantic operations (recommended entry points)
 
 ```go
-c.SetModel(slot, cloth, filename, data, nil)          // 设模型（gzip 分块上传）
-c.ApplyModel(slot, cloth, filename, nil)              // 仅应用已有模型
-c.SetInfo(slot, &clt01.CharacterSettings{Name: "…"})  // 设角色信息
-c.SetCloneVoice(audio, "a.wav", &clt01.CloneVoiceOptions{GroupKey: "g"}) // 设克隆音色
-res, _ := c.PlayChat(text, &clt01.PlayChatOptions{    // 播报
+c.SetModel(slot, cloth, filename, data, nil)          // set model (gzip chunked upload)
+c.ApplyModel(slot, cloth, filename, nil)              // apply an already-uploaded model
+c.SetInfo(slot, &clt01.CharacterSettings{Name: "…"})  // set character info
+c.SetCloneVoice(audio, "a.wav", &clt01.CloneVoiceOptions{GroupKey: "g"}) // set cloned voice
+res, _ := c.PlayChat(text, &clt01.PlayChatOptions{    // playback
     Slot: 1, Language: "zh", VoiceID: "v", GroupKey: "g"})
-// res.Channel: "chat-turns"（/data/user/chat/turns）
+// res.Channel: "chat-turns" (/data/user/chat/turns)
 ```
 
-## 固件版本（只支持 1.5.3+）
+## Firmware versions (1.5.3+ only)
 
-本 SDK 只支持 1.5.3 及以上固件，**接口默认全部走最新版本**：
-上传走 gzip 分块通道（job[transport=gzip] → chunk/:seq → complete，8MiB 流式硬限）、
-应用走 outfit/apply（早期 1.5.3 构建 404 时回退三件套 model-apply）、
-落盘校验以 uploaded-models 为权威。更早固件（1.5.2 / legacy）的兼容通道已移除。
-探测失败时也按 1.5.3 处理；`Firmware()` 仅用于日志与联调：
+This SDK supports firmware 1.5.3 and above only, and **all interfaces default to the latest version**:
+uploads use the gzip chunked channel (job[transport=gzip] → chunk/:seq → complete, with an 8MiB streaming hard limit),
+applying uses outfit/apply (falling back to the model-apply trio when early 1.5.3 builds return 404),
+and disk verification treats uploaded-models as authoritative. Compatibility channels for older firmware (1.5.2 / legacy) have been removed.
+If probing fails the SDK still assumes 1.5.3; `Firmware()` is for logs and debugging only:
 
 ```go
-fw, _ := c.Firmware()                  // 探测并缓存（版本 / drafts / uploaded-models）
-c.ForceFirmware(clt01.VerChunkedUpload) // 联调时强制指定版本
-c.UploadVRM(slot, cloth, filename, data, nil)   // 上传+应用+落盘校验
-c.VerifyVRMPersisted(slot, cloth)               // 防假 SUCCESS
+fw, _ := c.Firmware()                  // probe and cache (version / drafts / uploaded-models)
+c.ForceFirmware(clt01.VerChunkedUpload) // force a version for debugging
+c.UploadVRM(slot, cloth, filename, data, nil)   // upload + apply + disk verification
+c.VerifyVRMPersisted(slot, cloth)               // guard against fake SUCCESS
 ```
 
-## 签名算法（与设备端一致）
+## Signature algorithm (matches the device side)
 
 `sig = hex(HMAC-SHA256(secret, "METHOD|path|timestamp|nonce|payloadMode|bodyHash|userID"))`
 
-头：`X-Local-Sig` / `X-Local-Nonce` / `X-Local-Timestamp` / `X-Local-Payload-Mode` / `X-Local-Body-Hash` / `X-Local-User-Id` / `X-Local-Session-Id`（session 模式）。SDK 已全部自动处理。
+Headers: `X-Local-Sig` / `X-Local-Nonce` / `X-Local-Timestamp` / `X-Local-Payload-Mode` / `X-Local-Body-Hash` / `X-Local-User-Id` / `X-Local-Session-Id` (session mode). The SDK handles all of this automatically.
