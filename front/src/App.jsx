@@ -29,10 +29,15 @@ const routes = [
 
 // 旧的独立直播页并进设置。地址栏还停在 /live 时直接打开设置里的直播标签
 // （直播入口由 features.js 的 SHOW_LIVE 控制，隐藏时统一回设置首页）。
+// Lab(ChatRoom) 由 SHOW_LAB 控制隐藏，直连 /advance 一并回落到首页。
 function canonicalPath() {
   if (/^\/live\/?$/.test(location.pathname)) {
     history.replaceState(null, '', SHOW_LIVE ? '/settings#live' : '/settings');
     return '/settings';
+  }
+  if (!SHOW_LAB && /^\/advance\/?$/.test(location.pathname)) {
+    history.replaceState(null, '', '/');
+    return '/';
   }
   return location.pathname;
 }
