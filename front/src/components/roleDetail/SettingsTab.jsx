@@ -6,8 +6,9 @@ import { useNav } from '../../App.jsx';
 import { putRole, KNOWN_PLATFORMS, normPlatform, uiPlatform, liveHasUserLevel } from './shared.js';
 import AccountLookup from '../common/AccountLookup.jsx';
 import { locAdapter, locChannelName } from '../common/adapters.js';
+import { SHOW_LIVE } from '../../features.js';
 
-// 角色设置分三段：
+// 角色设置分三段（Live 上游配置由 features.js 的 SHOW_LIVE 控制隐藏）：
 //   1. Feed 上游配置（目标 + 渠道 + 监听）
 //   2. Live 上游配置（目标 + 渠道 + 弹幕）
 //   3. 通用播报设置（TTS/Chat、语言、重复、过滤）
@@ -189,20 +190,20 @@ export default function SettingsTab({ role, machines, onSaved, llmReady: llmRead
         <p className="hint" style={{ margin: '4px 0 8px' }}>{t('sharedUpstreamHint')}</p>
         <div className="hint" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <span>{t('feed')}: {channels.feed.length}</span>
-          <span>{t('navLive')}: {channels.live.length}</span>
+          {SHOW_LIVE && <span>{t('navLive')}: {channels.live.length}</span>}
           {setup ? <span>{t('upstreamBrowserLoggedIn')}: {setup.browser_logged_in || 0}</span> : null}
           {setup?.socialdata_ready ? <span className="badge ok">socialdata ✓</span> : null}
         </div>
         <div className="account-actions">
           <button className="mini ghost" type="button" onClick={() => nav('/settings#feed')}>{t('goFeedSettings')}</button>
-          <button className="mini ghost" type="button" onClick={() => nav('/settings#live')}>{t('goLiveSettings')}</button>
+          {SHOW_LIVE && <button className="mini ghost" type="button" onClick={() => nav('/settings#live')}>{t('goLiveSettings')}</button>}
         </div>
       </div>
 
       <nav className="subtabs subtabs-line" aria-label={t('tabSettings')} style={{ marginTop: 12, maxWidth: 860 }}>
         {[
           ['feed', 'feedUpstreamConfig'],
-          ['live', 'liveUpstreamConfig'],
+          ...(SHOW_LIVE ? [['live', 'liveUpstreamConfig']] : []),
           ['broadcast', 'broadcastConfig'],
         ].map(([key, label]) => (
           <button key={key} type="button" className={'tab mini' + (section === key ? ' active' : '')}
@@ -281,8 +282,8 @@ export default function SettingsTab({ role, machines, onSaved, llmReady: llmRead
         {f.monitor_way === 'callback' && <p className="hint">ℹ️ {t('monitorWayCallbackHint')}</p>}
       </div>}
 
-      {/* 2. Live 上游配置 */}
-      {section === 'live' && <div className="card" style={{ maxWidth: 860, marginTop: 12 }}>
+      {/* 2. Live 上游配置（SHOW_LIVE 隐藏） */}
+      {section === 'live' && SHOW_LIVE && <div className="card" style={{ maxWidth: 860, marginTop: 12 }}>
         <div className="bound-source">
           <b>{t('liveUpstreamConfig')}</b>
           <span className="badge mut">{t('liveSectionHint')}</span>

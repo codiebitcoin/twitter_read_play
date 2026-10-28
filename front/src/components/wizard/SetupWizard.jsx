@@ -19,6 +19,7 @@ import { useToastErr, useToastOk } from '../../toast.jsx';
 import { useNav } from '../../App.jsx';
 import { notifyMessageQueued } from '../../messageQueue.js';
 import MacLanTip, { isLanFailure } from '../MacLanTip.jsx';
+import { SHOW_LIVE } from '../../features.js';
 import { platformLabel, uiPlatform } from '../roleDetail/shared.js';
 
 const BASE_STEPS = ['wizStepMachine', 'wizStepRole', 'wizStepBind', 'wizStepSync', 'wizStepDone'];
@@ -960,8 +961,8 @@ function PageImport({ edit, setEdit }) {
     setErr('');
     setRes(null);
     let data = null;
-    // 先按 Feed 解析；失败再按 Live 解析（直播 URL 在 Feed 域通常是非法的）。
-    for (const domain of ['feed', 'live']) {
+    // 先按 Feed 解析；SHOW_LIVE 时失败再按 Live 解析（直播 URL 在 Feed 域通常是非法的）。
+    for (const domain of ['feed', ...(SHOW_LIVE ? ['live'] : [])]) {
       try {
         data = await api('/api/source/inspect', {
           method: 'POST',
@@ -990,7 +991,7 @@ function PageImport({ edit, setEdit }) {
     <div className="card" style={{ marginTop: 10, padding: 12 }}>
       <div className="bound-source">
         <b>🔎 {t('wizPageImport')}</b>
-        <span className="badge mut">Feed / Live</span>
+        <span className="badge mut">{SHOW_LIVE ? 'Feed / Live' : 'Feed'}</span>
       </div>
       <p className="hint" style={{ margin: '4px 0 8px' }}>{t('wizPageImportHint')}</p>
       <div className="account-input">
