@@ -231,9 +231,9 @@ export const I18N = {
   liveChannel: {en:'Live channel', ja:'Live チャンネル', zh:'Live 渠道'},
   channelAuto: {en:'Auto (by priority)', ja:'自動（優先度順）', zh:'自动（按优先级）'},
   channelSelectHint: {
-    en:'Empty = auto. An explicit channel is never silently replaced by another one.',
-    ja:'空 = 自動。明示したチャンネルが失敗しても別のものへ黙って切り替えません。',
-    zh:'留空 = 自动；显式选择后失败不会偷偷换渠道。',
+    en:'Empty = auto, preferring the built-in-browser login channel. An explicit channel is never silently replaced by another one.',
+    ja:'空 = 自動（内蔵ブラウザのログインチャンネルを優先）。明示したチャンネルが失敗しても別のものへ黙って切り替えません。',
+    zh:'留空 = 自动（优先内置浏览器登录渠道）；显式选择后失败不会偷偷换渠道。',
   },
   channelNoneForPlatform: {
     en:'No channel matches this platform yet. Configure one in Settings → Feed.',

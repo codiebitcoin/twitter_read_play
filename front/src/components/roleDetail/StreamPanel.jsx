@@ -4,7 +4,7 @@ import { api } from '../../api.js';
 import { useNav } from '../../App.jsx';
 import { useToastErr, useToastOk } from '../../toast.jsx';
 import { notifyMessageQueued } from '../../messageQueue.js';
-import { parseFilterWords, liveHasUserLevel } from './shared.js';
+import { parseFilterWords, liveHasUserLevel, putRole } from './shared.js';
 
 // 弹幕分页：每页条数 / 前端最多保留的条数（更早的从服务端翻回来）。
 const PAGE = 120;
@@ -80,9 +80,11 @@ export default function StreamPanel({ role, onSaved }) {
   };
 
   // ---- 弹幕过滤（后端 livechat.Filter 的前端镜像；改动即存到角色） ----
+  // saveLive/toggleBroadcast 都走 putRole：先拉服务端最新角色再合并写入，
+  // 别让本页打开时的旧快照把设置页刚改的播放模式/模板写回旧值。
   const saveLive = async (extra) => {
     try {
-      await api('/api/roles/' + encodeURIComponent(role.id), { method: 'PUT', body: JSON.stringify({ ...role, ...extra }) });
+      await putRole(role, extra);
       toastOk(t('saved'));
       onSaved && onSaved();
       return true;
@@ -113,7 +115,7 @@ export default function StreamPanel({ role, onSaved }) {
   const paused = !role.live_enabled;
   const toggleBroadcast = async () => {
     try {
-      await api('/api/roles/' + encodeURIComponent(role.id), { method: 'PUT', body: JSON.stringify({ ...role, live_enabled: paused }) });
+      await putRole(role, { live_enabled: paused });
       toastOk(paused ? t('streamResumed') : t('streamPaused'));
       onSaved && onSaved();
     } catch (e) { toastErr(e.message); }
@@ -209,7 +211,7 @@ function StreamPreview({ id, title, running, role, onSaved, levelSupported }) {
 
   const saveLive = async (extra) => {
     try {
-      await api('/api/roles/' + encodeURIComponent(role.id), { method: 'PUT', body: JSON.stringify({ ...role, ...extra }) });
+      await putRole(role, extra);
       toastOk(t('saved'));
       onSaved && onSaved();
     } catch (e) { toastErr(e.message); }

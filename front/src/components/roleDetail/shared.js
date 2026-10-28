@@ -2,8 +2,13 @@ import { api } from '../../api.js';
 import { t } from '../../i18n.js';
 
 // ---- 共用的角色 PUT（spread 保留非表单字段） ----
+// 全量 PUT 前先拉服务端最新快照做 base：调用方手里的 role 是「打开页面那一刻」的
+// 快照，直接 spread 回写会把别处（另一台设备/另一个面板）刚改过的配置静默写回旧值
+// （实测：设置里切了 TTS 模式/模板，Stream 面板随后一次拉黑/暂停就把它写回去了）。
 export async function putRole(role, extra) {
-  return api('/api/roles/' + encodeURIComponent(role.id), { method: 'PUT', body: JSON.stringify({ ...role, ...extra }) });
+  const url = '/api/roles/' + encodeURIComponent(role.id);
+  const cur = await api(url).catch(() => null);
+  return api(url, { method: 'PUT', body: JSON.stringify({ ...(cur || role), ...extra }) });
 }
 
 // 角色平台：界面只露出 x。存量 twitter 与空值都归到 x；上游匹配仍把 x 视为 twitter。

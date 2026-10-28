@@ -357,7 +357,13 @@ func candidateScore(a Adapter, ch Channel, m Match) int {
 	if p > 100 {
 		p = 100
 	}
-	return (100-p)*1000 - ch.Sort + m.Score
+	score := (100-p)*1000 - ch.Sort + m.Score
+	// 内置浏览器登录渠道默认优先（产品约定：默认用内置浏览器登录方式拉取，
+	// 免 API Key；桌面登录态/游客态即可）。显式指定渠道时走上面的直通分支，不受此加分影响。
+	if ch.Credentials.Has(CredDesktopSession) {
+		score += 20000
+	}
+	return score
 }
 
 // ValidatePlatform 校验 Role 平台与目标平台是否一致（空 = 不校验）。
