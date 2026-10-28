@@ -487,8 +487,8 @@ export const I18N = {
   wizDoneHint: {en:'Fine-tune persona, voice, VRM and monitoring any time on the role page.', ja:'ペルソナ・音色・VRM・監視はロールページで調整できます。', zh:'需要更细的配置（人设、音色、VRM、监控）随时进角色详情页调整。'},
   wizDoneToast: {en:'Setup saved', ja:'設定を保存しました', zh:'已保存'},
   // socialdata key 弹窗（向导内）
-  wizSdTitle: {en:'Connect data source', ja:'データソース接続', zh:'配置数据源 Key'},
-  wizSdSub: {en:'Fetching tweets needs a socialdata.tools API key. Fill it here, or apply on their site first.', ja:'ツイート取得には socialdata.tools の API キーが必要です。', zh:'拉取推文需要 socialdata.tools 的 API Key；可以在这里直接填，或先去官网申请。'},
+  wizSdTitle: {en:'Connect data source', ja:'データソース接続', zh:'连接数据源'},
+  wizSdSub: {en:'Default: sign in with the built-in browser (no key needed). You can also use a socialdata.tools API key for cloud fetching.', ja:'デフォルトは内蔵ブラウザでログイン（キー不要）。socialdata.tools の API キーでの取得も可能です。', zh:'默认用内置浏览器登录拉取（免 Key）；也可以改填 socialdata.tools API Key 走云端拉取。'},
   wizSdGuide: {en:'guide', ja:'ガイド', zh:'guide'},
   wizSdNoKey: {en:'No key yet?', ja:'キーをお持ちでない方', zh:'还没有 Key？'},
   wizSdSkip: {en:'Configure later', ja:'後で設定', zh:'稍后再配'},

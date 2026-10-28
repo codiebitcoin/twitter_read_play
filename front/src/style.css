@@ -519,3 +519,7 @@ label.inline select { padding:4px 8px; font-size:12px; }
   .account-input { flex-wrap:wrap; }
   .account-input input { min-width:100%; }
 }
+
+/* hash 锚点跳转（#tab/anchor）落到卡片时的高亮闪烁 */
+@keyframes hash-flash { 0% { box-shadow: 0 0 0 3px rgba(96,140,255,.55); } 70% { box-shadow: 0 0 0 3px rgba(96,140,255,.35); } 100% { box-shadow: 0 0 0 0 rgba(96,140,255,0); } }
+.hash-flash { animation: hash-flash 1.2s ease-out 3; }

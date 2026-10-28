@@ -85,7 +85,7 @@ export default function SetupWizard({ machines, roles, onClose, onDone }) {
   // 但桌面端还有第二条路：内置浏览器登录平台后直接用页面接口，不需要 key。
   const [sd, setSd] = useState('loading'); // 'loading' | 'missing' | 'ready'
   const [sdKey, setSdKey] = useState('');
-  const [sdMode, setSdMode] = useState('key'); // 'key' | 'browser'
+  const [sdMode, setSdMode] = useState('browser'); // 'key' | 'browser'：默认内置浏览器登录（不可用时回落 key）
   const [browser, setBrowser] = useState(null);
   useEffect(() => {
     api('/api/setup/status')
@@ -93,10 +93,10 @@ export default function SetupWizard({ machines, roles, onClose, onDone }) {
       .catch(() => setSd('missing'));
     api('/api/browser/session').then(setBrowser).catch(() => setBrowser({ available: false, providers: [] }));
   }, []);
-  // 内置浏览器可用且已有平台登录时，默认选「直接登录」而不是填 key。
+  // 默认「内置浏览器直接登录」（免 Key）；仅桌面端可用——Web 模式没有内置浏览器时回落填 key。
   useEffect(() => {
-    if (!browser || !browser.available) return;
-    if ((browser.providers || []).some((p) => p.connected)) setSdMode('browser');
+    if (!browser) return;
+    if (!browser.available) setSdMode('key');
   }, [browser]);
   const browserLogged = !!browser && (browser.providers || []).some((p) => p.connected);
   const needSd = sd === 'missing' && !browserLogged;
@@ -439,7 +439,7 @@ export default function SetupWizard({ machines, roles, onClose, onDone }) {
                 sdKey={sdKey} setSdKey={setSdKey}
                 mode={sdMode} setMode={setSdMode}
                 browser={browser}
-                onOpenSettings={() => { onClose && onClose(); nav('/settings'); }}
+                onOpenSettings={() => { onClose && onClose(); nav('/settings#feed/browser-login'); }}
               />
             )}
 
@@ -466,7 +466,7 @@ export default function SetupWizard({ machines, roles, onClose, onDone }) {
                 sdMode={sdMode} setSdMode={setSdMode}
                 sdKey={sdKey} setSdKey={setSdKey} saveSdKey={saveSdKey}
                 browser={browser} browserLogged={browserLogged} saving={saving}
-                onOpenBrowserSettings={() => { onClose && onClose(); nav('/settings#feed'); }}
+                onOpenBrowserSettings={() => { onClose && onClose(); nav('/settings#feed/browser-login'); }}
               />
             )}
 

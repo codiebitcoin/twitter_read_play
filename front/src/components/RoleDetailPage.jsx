@@ -77,7 +77,7 @@ export default function RoleDetailPage({ id }) {
   }, [tab]);
 
   // 跳到全局 Settings 页的 socialdata key（跨页面，用 hash 让目标页自己滚）
-  const goGlobalKey = () => nav('/settings#socialdata-key');
+  const goGlobalKey = () => nav('/settings#feed/socialdata-key');
 
   if (!role) return <p className="loading">{t('loading')}</p>;
 

@@ -334,7 +334,7 @@ function BrowserLoginBar({ domain }) {
   };
 
   return (
-    <div className="card" style={{ maxWidth: 900 }}>
+    <div className="card" style={{ maxWidth: 900 }} id={domain === 'live' ? 'browser-login-live' : 'browser-login'}>
       <div className="bound-source">
         <b>{t('browserLoginTitle')}</b>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -554,7 +554,7 @@ function FeedTab({ st, onSaved }) {
         </label>
         <div className="card-actions"><button onClick={saveSocialdata}>{t('save')}</button></div>
       </div>
-      <ChannelsSection domain="feed" />
+      <div id="feed-channels"><ChannelsSection domain="feed" /></div>
     </>
   );
 }
@@ -638,7 +638,7 @@ function AdvancedTab({ st, onSaved }) {
         <p className="hint">{t('noHTTPHint')}</p>
         <div className="card-actions"><button onClick={saveNet}>{t('save')}</button></div>
       </div>
-      <div className="card" style={{ maxWidth: 520, marginTop: 16 }}>
+      <div className="card" style={{ maxWidth: 520, marginTop: 16 }} id="llm-api">
         <b>{t('llmTitle')}</b>
         <label className="field" style={{ marginTop: 8 }}>{t('llmBaseUrl')}
           <input value={llm.base_url} onChange={(e) => setLlm({ ...llm, base_url: e.target.value })} placeholder="https://api.openai.com/v1" />
@@ -653,7 +653,7 @@ function AdvancedTab({ st, onSaved }) {
         <div className="card-actions"><button onClick={saveLlm}>{t('save')}</button></div>
       </div>
       {!st.pc_mode && (
-        <div className="card" style={{ maxWidth: 520, marginTop: 16 }}>
+        <div className="card" style={{ maxWidth: 520, marginTop: 16 }} id="webhook">
           <b>{t('webhookTitle')}</b>
           <label className="field" style={{ marginTop: 8 }}>
             {t('monMode')}
@@ -743,9 +743,14 @@ function UpstreamsTab() {
 
 export default function SettingsPage() {
   const [st, setSt] = useState(null);
-  const initialHash = (location.hash || '').slice(1);
-  const [tab, setTab] = useState(TABS.includes(initialHash) ? initialHash
-    : (initialHash === 'socialdata-key' ? 'feed' : 'account'));
+  // hash 支持两段式「tab/anchor」：#feed/browser-login、#feed/socialdata-key、
+  // #feed/feed-channels、#advanced/llm-api… —— 让别的页面能精准跳到设置里的某张卡。
+  // 兼容旧的一段式 #socialdata-key（归入 feed）。
+  const [hashTab, hashAnchor] = ((location.hash || '').slice(1)).split('/');
+  const initialTab = TABS.includes(hashTab) ? hashTab
+    : (hashTab === 'socialdata-key' || hashAnchor === 'socialdata-key' ? 'feed' : 'account');
+  const [tab, setTab] = useState(initialTab);
+  const [anchor] = useState(hashTab === 'socialdata-key' ? 'socialdata-key' : (hashAnchor || ''));
 
   const load = async () => {
     try {
@@ -758,6 +763,19 @@ export default function SettingsPage() {
   };
   useEffect(() => { load(); }, []);
   useEffect(() => { history.replaceState(null, '', '/settings#' + tab); }, [tab]);
+
+  // 带 anchor 进入时：等目标卡渲染完，滚动到它并闪烁高亮一次。
+  useEffect(() => {
+    if (!anchor) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(anchor);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('hash-flash');
+      setTimeout(() => el.classList.remove('hash-flash'), 3600);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [anchor, tab]);
 
   if (!st) return <p className="loading">{t('loading')}</p>;
 

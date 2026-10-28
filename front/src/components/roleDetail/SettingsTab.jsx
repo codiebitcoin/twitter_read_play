@@ -195,7 +195,7 @@ export default function SettingsTab({ role, machines, onSaved, llmReady: llmRead
           {setup?.socialdata_ready ? <span className="badge ok">socialdata ✓</span> : null}
         </div>
         <div className="account-actions">
-          <button className="mini ghost" type="button" onClick={() => nav('/settings#feed')}>{t('goFeedSettings')}</button>
+          <button className="mini ghost" type="button" onClick={() => nav('/settings#feed/feed-channels')}>{t('goFeedSettings')}</button>
           {SHOW_LIVE && <button className="mini ghost" type="button" onClick={() => nav('/settings#live')}>{t('goLiveSettings')}</button>}
         </div>
       </div>

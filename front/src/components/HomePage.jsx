@@ -108,11 +108,11 @@ export default function HomePage() {
         <span className="spacer" style={{ flex: 1 }}></span>
         <div className="home-readiness">
           <span className={'badge ' + (upstreamReady || st.data_source_ready || st.socialdata_ready ? 'ok' : 'warn')}
-            style={{ cursor: 'pointer' }} title={t('homeGoSettings')} onClick={() => nav('/settings')}>
+            style={{ cursor: 'pointer' }} title={t('homeGoSettings')} onClick={() => nav('/settings#feed/browser-login')}>
             🔑 {t('homeDataSource')}
           </span>
           <span className={'badge ' + (st.llm_ready ? 'ok' : 'mut')}
-            style={{ cursor: 'pointer' }} title={t('homeGoSettings')} onClick={() => nav('/settings')}>
+            style={{ cursor: 'pointer' }} title={t('homeGoSettings')} onClick={() => nav('/settings#advanced/llm-api')}>
             🧠 {t('llmTitle')}
           </span>
         </div>
