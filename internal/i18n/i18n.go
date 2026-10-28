@@ -92,6 +92,9 @@ func init() {
 	Add("err.bad_credentials", map[string]string{
 		"en": "Invalid username or password", "ja": "ユーザー名またはパスワードが正しくありません", "zh": "用户名或密码错误",
 	})
+	Add("err.too_many_attempts", map[string]string{
+		"en": "Too many failed attempts, try again in a minute", "ja": "試行回数が多すぎます。1分後に再試行してください", "zh": "失败次数过多，请一分钟后再试",
+	})
 	Add("err.addr_required", map[string]string{
 		"en": "addr is required", "ja": "addr は必須です", "zh": "addr 必填",
 	})

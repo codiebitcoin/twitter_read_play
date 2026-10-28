@@ -56,6 +56,8 @@ type Server struct {
 	EnvAuthPass string // env AUTH_PASS
 	Static      embed.FS
 
+	logins *loginGuard // /api/login 防爆破（进程内存态）
+
 	// Desktop 桌面模式（本机单机窗口）：未配置任何账号密码时直接放行 ——
 	// 否则单机用户会因为登录接口必然 401 而永远卡在登录页。服务端部署不设该字段。
 	Desktop bool
@@ -88,6 +90,14 @@ func (s *Server) authUser() string {
 		return s.EnvAuthUser
 	}
 	return DefaultAuthUser
+}
+
+// loginGuard 惰性创建（Server 由调用方按字段构造，不强制经过 New）。
+func (s *Server) loginGuard() *loginGuard {
+	if s.logins == nil {
+		s.logins = newLoginGuard()
+	}
+	return s.logins
 }
 
 func (s *Server) authPass() string {
@@ -387,12 +397,24 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		s.err(w, 400, err)
 		return
 	}
+	ip := clientIP(r)
+	guard := s.loginGuard()
+	if guard.limited(ip) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		s.json(w, map[string]string{"error": i18n.T(lang(r), "err.too_many_attempts")})
+		return
+	}
 	u, p := s.authUser(), s.authPass()
-	if u == "" || p == "" || in.User != u || in.Pass != p {
+	// 两个比较都无条件执行，避免「用户名错 / 密码错」的时序差异
+	userOK := credEq(in.User, u)
+	passOK := credEq(in.Pass, p)
+	if u == "" || p == "" || !userOK || !passOK {
+		guard.fail(ip)
 		w.WriteHeader(http.StatusUnauthorized)
 		s.json(w, map[string]string{"error": i18n.T(lang(r), "err.bad_credentials")})
 		return
 	}
+	guard.clear(ip)
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
 		s.err(w, 500, err)
