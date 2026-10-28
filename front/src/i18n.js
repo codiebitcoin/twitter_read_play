@@ -1021,7 +1021,10 @@ export const I18N = {
   vrmRename: {en:'Rename', ja:'名前を変更', zh:'改名'},
 };
 
-let LANG = localStorage.getItem('lang') || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
+// 默认语言：浏览器区域若是中文/日文则跟随，否则英文（en 为全局兜底）。
+const browser = (navigator.language || '').toLowerCase();
+const browserLang = browser.startsWith('zh') ? 'zh' : (browser.startsWith('ja') ? 'ja' : 'en');
+let LANG = localStorage.getItem('lang') || browserLang;
 
 export const getLang = () => LANG;
 export const setLang = (l) => { LANG = l; localStorage.setItem('lang', l); };

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { t, getLang, setLang } from './i18n.js';
 import { api } from './api.js';
-import { SHOW_LIVE } from './features.js';
+import { SHOW_LIVE, SHOW_LAB } from './features.js';
 import HomePage from './components/HomePage.jsx';
 import MachinesPage from './components/MachinesPage.jsx';
 import MachineDetailPage from './components/MachineDetailPage.jsx';
@@ -100,7 +100,7 @@ export default function App() {
     ['/', 'home'],
     ['/machines', 'machines'],
     ['/roles', 'roles'],
-    ['/advance', 'advance'],
+    ...(SHOW_LAB ? [['/advance', 'advance']] : []),
     ['/settings', 'settings'],
     ['/logs', 'logs'],
   ];

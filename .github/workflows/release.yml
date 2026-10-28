@@ -1,7 +1,7 @@
 name: Release
 
-# 打 tag（v*）自动构建三平台安装包并发布到 GitHub Release；
-# 也可以手动触发，只为三平台各出一份构建工件（不发 Release）。
+# 打 tag（v*）自动构建三平台安装包 + Docker 镜像并发布；
+# 也可以手动触发，只为三平台各出一份构建工件（不发 Release、不推镜像）。
 on:
   push:
     tags: ['v*']
@@ -9,13 +9,11 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
-
-env:
-  GO_VERSION_FILE: go.mod
 
 jobs:
   # ---------------------------------------------------------------- Windows
@@ -23,26 +21,22 @@ jobs:
     name: Windows (exe + installer)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: front/package-lock.json
-
       - name: Build frontend
         working-directory: front
         run: |
           npm ci
           npm run build
-
       - name: Set version from tag
         shell: bash
         run: |
@@ -51,11 +45,9 @@ jobs:
             sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"$VER\"/" mygo.json
           fi
           grep '"version"' mygo.json
-
       - name: Build Windows packages
         run: go tool mygo build -platform windows/amd64 -o build
-
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: windows
           path: build/windows-amd64/*.exe
@@ -66,26 +58,22 @@ jobs:
     name: Linux (deb + AppImage)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: front/package-lock.json
-
       - name: Build frontend
         working-directory: front
         run: |
           npm ci
           npm run build
-
       - name: Set version from tag
         run: |
           VER="${GITHUB_REF_NAME#v}"
@@ -93,15 +81,11 @@ jobs:
             sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"$VER\"/" mygo.json
           fi
           grep '"version"' mygo.json
-
-      # mygo 的 linux 产物同目录出 .deb 与 tar.gz，MyGo 自带桌面入口与 install.sh
       - name: Build Linux packages
         run: go tool mygo build -platform linux/amd64 -o build
-
       - name: Build AppImage
         run: sh scripts/make-appimage.sh build/linux-amd64 build/twitter-read-play-x86_64.AppImage
-
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux
           path: |
@@ -114,26 +98,22 @@ jobs:
     name: macOS (app + dmg)
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: front/package-lock.json
-
       - name: Build frontend
         working-directory: front
         run: |
           npm ci
           npm run build
-
       - name: Set version from tag
         run: |
           VER="${GITHUB_REF_NAME#v}"
@@ -141,18 +121,47 @@ jobs:
             sed -i '' "s/\"version\": *\"[^\"]*\"/\"version\": \"$VER\"/" mygo.json
           fi
           grep '"version"' mygo.json
-
-      # 通用二进制 + 原生压缩 dmg（hdiutil）；未配置签名身份时是 ad-hoc 签名
       - name: Build macOS app and dmg
         run: go tool mygo build -platform darwin/universal -o build
-
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: macos
           path: |
             build/darwin-universal/*.dmg
             build/darwin-universal/*.app.tar.gz
           if-no-files-found: warn
+
+  # -------------------------------------------------------------- GHCR image
+  docker:
+    name: Docker image (GHCR)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image tags
+        id: meta
+        run: |
+          IMG="ghcr.io/${GITHUB_REPOSITORY,,}"
+          if [[ "${GITHUB_REF_NAME}" == "v"* ]]; then
+            echo "tags=${IMG}:${GITHUB_REF_NAME#v},${IMG}:latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=${IMG}:dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------- Release
   release:
@@ -161,10 +170,9 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
-
       - name: Collect packages
         run: |
           mkdir -p out
@@ -172,7 +180,6 @@ jobs:
             -o -name '*.dmg' -o -name '*.tar.gz' \) -exec cp {} out/ \;
           cd out && sha256sum * > SHA256SUMS.txt
           ls -la
-
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
