@@ -3,12 +3,12 @@
 CLT01 设备（`clt01_embed_backend`）局域网访问 Go SDK：函数式调用、完整配对流程封装、凭据管理、Web 控制台（含 `/config/pair` 授权页）反向代理内嵌。
 
 > 模块名 `workshop_inner_sdk`（原 `workshop_api` 已并入本仓库，作为内联源码维护）。
+> **只支持 1.5.3+ 固件**，接口默认全部走最新版本；测试代码在 `test/` 目录。
 
 ## 安装
 
-```bash
-go get workshop_inner_sdk   # 改名后路径不变
-```
+本 SDK 随主仓库以内联源码维护（`third_party/workshop_inner_sdk`），通过主仓库 `go.mod` 的
+`replace workshop_inner_sdk => ./third_party/workshop_inner_sdk` 引用，无需单独安装。
 
 ## 快速开始
 
@@ -102,11 +102,16 @@ http.ListenAndServe("127.0.0.1:8090", mux)
 
 ## 测试
 
+测试代码统一放在 `test/` 目录（外部测试包 `clt01_test`）：
+
 ```bash
-# 单元编译 + 在线冒烟（对真实设备，默认跳过）
+# 单元测试（无需设备）
+go test ./test/
+
+# 在线冒烟（对真实设备，默认跳过）
 CLT01_LIVE_ADDR=192.168.1.10:8081 \
 CLT01_LIVE_SECRET=<local_secret> CLT01_LIVE_SESSION=<session_id> CLT01_LIVE_USER=<user_id> \
-go test -run TestLive -v .
+go test ./test/ -run TestLive -v
 ```
 
 在线用例覆盖：ping/bootstrap、签名请求、坏签名拒绝（`LOCAL_SECRET_MISMATCH`）、pair request→cancel 链路。
@@ -135,7 +140,7 @@ SDK 内建 MCP 服务端（零外部依赖，手写 JSON-RPC 2.0），把配对 
 | `clt01_system_info` | 读取系统信息（需已配对） |
 | `clt01_character_get / set / list` | 读取 / 原子设置（SetInfo 语义）/ 列出角色槽配置 |
 | `clt01_voice_groups` | 音色分组与 voice_id 列表 |
-| `clt01_play_chat` | 播报文本（版本自动选通道，返回 chat_id） |
+| `clt01_play_chat` | 播报文本（chat/turns 通道，返回 chat_id） |
 | `clt01_play_state` / `clt01_play_cancel` | 播放状态查询 / 取消播报 |
 | `clt01_tts_say` | TTS 直读（不经角色 LLM 管线） |
 | `clt01_raw_request` | 通用签名请求逃生口（任意 LOCAL API） |
@@ -179,33 +184,30 @@ go run ./cmd/clt01-example pair 192.168.1.10:8081
 （无状态实现，无需 session/token）。接入后在对话里即可说「让设备播报xx」「改 1 号角色
 prompt」「查音色列表」等，模型自动选工具调用。
 
-## 原子语义操作（推荐入口，版本自动分发）
+## 原子语义操作（推荐入口）
 
 ```go
-c.SetModel(slot, cloth, filename, data, nil)          // 设模型（≥1.5.3 分块 / 1.5.2 async）
+c.SetModel(slot, cloth, filename, data, nil)          // 设模型（gzip 分块上传）
 c.ApplyModel(slot, cloth, filename, nil)              // 仅应用已有模型
 c.SetInfo(slot, &clt01.CharacterSettings{Name: "…"})  // 设角色信息
 c.SetCloneVoice(audio, "a.wav", &clt01.CloneVoiceOptions{GroupKey: "g"}) // 设克隆音色
-res, _ := c.PlayChat(text, &clt01.PlayChatOptions{    // 播报（版本自动选通道）
+res, _ := c.PlayChat(text, &clt01.PlayChatOptions{    // 播报
     Slot: 1, Language: "zh", VoiceID: "v", GroupKey: "g"})
-// res.Channel: "chat-turns"（≥1.5.3 → /data/user/chat/turns）
-//              "tts"（<1.5.3 → /tts_audition）
+// res.Channel: "chat-turns"（/data/user/chat/turns）
 ```
 
-## 固件版本分层（Facade 自动分发）
+## 固件版本（只支持 1.5.3+）
 
-SDK 内建固件版本感知，宿主只调统一入口，内部按探测到的版本分发（详见 `PLAN.md`）：
-
-| 入口 | ≥1.5.3 | 1.5.0~1.5.2 | <1.5.0 |
-|---|---|---|---|
-| `UploadVRM/UploadVRMOpt` | gzip 分块（job→chunk→complete，8MiB 硬限） | async multipart（404 回退 job/file） | job + file + complete(忽略404) |
-| `SelectCloth` | outfit/apply（PUT 三件套被拒） | 三件套 model-apply PUT（outfit 不可信） | outfit 优先回退 PUT |
-| 落盘判据 | uploaded-models（权威） | custom_cloths 含文件名 | 宽松 |
+本 SDK 只支持 1.5.3 及以上固件，**接口默认全部走最新版本**：
+上传走 gzip 分块通道（job[transport=gzip] → chunk/:seq → complete，8MiB 流式硬限）、
+应用走 outfit/apply（早期 1.5.3 构建 404 时回退三件套 model-apply）、
+落盘校验以 uploaded-models 为权威。更早固件（1.5.2 / legacy）的兼容通道已移除。
+探测失败时也按 1.5.3 处理；`Firmware()` 仅用于日志与联调：
 
 ```go
-fw, _ := c.Firmware()        // 探测并缓存（VerLegacy / VerV15x / VerV153）
-c.ForceFirmware(clt01.VerV153) // 联调时强制指定
-c.UploadVRM(slot, cloth, filename, data, nil)   // 上传+应用+分层校验
+fw, _ := c.Firmware()                  // 探测并缓存（版本 / drafts / uploaded-models）
+c.ForceFirmware(clt01.VerChunkedUpload) // 联调时强制指定版本
+c.UploadVRM(slot, cloth, filename, data, nil)   // 上传+应用+落盘校验
 c.VerifyVRMPersisted(slot, cloth)               // 防假 SUCCESS
 ```
 

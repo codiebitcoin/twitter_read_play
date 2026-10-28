@@ -1,6 +1,7 @@
-package clt01
+package clt01_test
 
 import (
+	. "workshop_inner_sdk"
 	"context"
 	"os"
 	"testing"

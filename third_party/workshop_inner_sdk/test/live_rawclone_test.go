@@ -1,6 +1,7 @@
-package clt01
+package clt01_test
 
 import (
+	. "workshop_inner_sdk"
 	"bytes"
 	"context"
 	"mime/multipart"
@@ -41,7 +42,7 @@ func TestRawCloneCall252(t *testing.T) {
 	t.Logf("multipart body: %d bytes", buf.Len())
 
 	start := time.Now()
-	raw, err := c.doRawBytesCT(context.Background(), http.MethodPost, path, buf.Bytes(), PayloadModeMultipart, ct)
+	raw, err := c.DoRawBytesCT(context.Background(), http.MethodPost, path, buf.Bytes(), PayloadModeMultipart, ct)
 	elapsed := time.Since(start).Round(time.Millisecond)
 	t.Logf("=== RESPONSE ===")
 	t.Logf("elapsed: %s", elapsed)

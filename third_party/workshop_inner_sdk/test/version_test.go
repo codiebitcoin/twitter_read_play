@@ -1,6 +1,9 @@
-package clt01
+package clt01_test
 
-import "testing"
+import (
+	. "workshop_inner_sdk"
+	"testing"
+)
 
 func TestCompareVersions(t *testing.T) {
 	cases := []struct {
@@ -41,15 +44,5 @@ func TestAtLeastThresholds(t *testing.T) {
 	}
 	if FirmwareVersion("1.5.2").AtLeast(VerChunkedUpload) {
 		t.Error("1.5.2 不应具备 chunked 能力层")
-	}
-}
-
-func TestUploadVRMOptVersionDispatch(t *testing.T) {
-	// 本 SDK 只支持 1.5.3+，任何版本都分发到 v153 实现
-	c := &Client{fw: &firmwareState{}}
-	for _, v := range []FirmwareVersion{"1.5.3", "1.5.4", "1.6.0"} {
-		if _, ok := implFor(v, c).(*v153Impl); !ok {
-			t.Errorf("%s 应分发到 1.5.3 实现", v)
-		}
 	}
 }

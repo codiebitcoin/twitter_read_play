@@ -158,12 +158,12 @@ func (c *Client) DoRawBytesCtx(ctx context.Context, method, path string, body []
 	if c.Secret == "" {
 		return nil, fmt.Errorf("clt01: 尚未配对，无签名密钥（请先调用 Pair 或 LoadCredentials）")
 	}
-	return c.doRawBytesCT(ctx, method, path, body, mode, "")
+	return c.DoRawBytesCT(ctx, method, path, body, mode, "")
 }
 
-// doUnsignedCT 同 doUnsigned，但允许覆盖 Content-Type（multipart 上传用）。
-// doRawBytesCT 同 doUnsignedCT，但不做 JSON 信封解析，返回原始响应体（二进制下载用）。
-func (c *Client) doRawBytesCT(ctx context.Context, method, path string, body []byte, mode PayloadMode, contentType string) ([]byte, error) {
+// DoRawBytesCT 同 DoRawBytesCtx，但允许覆盖 Content-Type（multipart 上传用；
+// 传 "" 时按 body 非空回落 application/json）。
+func (c *Client) DoRawBytesCT(ctx context.Context, method, path string, body []byte, mode PayloadMode, contentType string) ([]byte, error) {
 	if path == "" || path[0] != '/' {
 		return nil, fmt.Errorf("clt01: path 必须以 / 开头: %q", path)
 	}
