@@ -197,26 +197,41 @@ Role detail → **Settings**:
 
 The **Settings** page has sub-tabs: Account, Feed (API keys & webhook), Advanced, Upstreams.
 
-### 6.1 Feed sub-tab (socialdata.tools)
+### 6.1 Browser login (default way to fetch)
+
+The **Browser logins** card is the default data source: sign a platform in once and the app reads it with the page's own APIs — no API key needed (desktop only).
+
+![Settings: browser logins](img/en/08-settings-browser-login.png)
+
+1. Settings → Feed → **Browser logins**, click **Log in** on a platform card (e.g. `x`).
+2. The app opens its built-in browser window on that platform's sign-in page — sign in as usual:
+
+   ![X sign-in window](img/x-login-window.png)
+
+3. After you sign in, the card reports the connected account ("✓ connected · your-handle"). Use **Check** per platform or **Check all** to re-verify anytime; **Log in** again if a session expires.
+4. From now on, a role whose channel is "Auto (by priority)" fetches through this logged-in browser channel automatically.
+
+> Tip: every jump that asks you to log in (setup wizard → "Open settings to sign in", the 🔑 data-source badge on Home) lands directly on this card via `Settings → #feed/browser-login`.
+
+### 6.2 Feed sub-tab (socialdata.tools, optional)
+
+Prefer cloud fetching? Register at [socialdata.tools/dashboard/api-keys](https://socialdata.tools/dashboard/api-keys), generate an API key (pay-as-you-go), and paste it into **socialdata.tools API key (default fallback for twitter)** under the Feed sub-tab, then **Save** — it takes effect immediately without restart.
 
 ![Settings: API keys and webhook](img/en/08-settings-apikeys.png)
 
-1. Register at [socialdata.tools/dashboard/api-keys](https://socialdata.tools/dashboard/api-keys) and get an API key (pay-as-you-go): **Generate API key** on the dashboard's Overview page, then paste it here.
-2. Paste the key into **socialdata.tools API key (default fallback for twitter)** and click **Save**. It takes effect immediately without restart and is masked on the page.
-
-### 6.2 Account
+### 6.3 Account
 
 ![Settings: account](img/en/08-settings-account.png)
 
 Change the console sign-in username/password. Values saved here always take priority over the deployment env; they take effect immediately. When empty, the value falls back to env (`AUTH_USER` / `AUTH_PASS`), then the default `admin / 11111`.
 
-### 6.3 Upstreams (multiple sources)
+### 6.4 Upstreams (multiple sources)
 
 ![Settings: upstream sources](img/en/09-settings-upstreams.png)
 
 - Click **+ Add upstream** to connect several data sources (name, API type, key, base_url, cookie, poll interval, enable toggle).
 - Each row can be **Test**ed (one fetch, showing count and latency) or deleted.
-- Without a dedicated upstream, the default socialdata.tools key from 6.1 is used as the fallback.
+- Without a dedicated upstream, the default socialdata.tools key from 6.2 is used as the fallback.
 
 ---
 

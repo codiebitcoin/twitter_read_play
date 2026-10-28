@@ -197,26 +197,41 @@ docker run -d -p 8080:8080 -v trp-data:/app/data \
 
 **设置** 页含子页：登录账号、Feed（API Keys 与 webhook）、高级、上游数据源。
 
-### 6.1 Feed 子页（socialdata.tools）
+### 6.1 浏览器登录（默认拉取方式）
+
+**浏览器登录**卡片是默认的数据源：平台登录一次，应用就能用页面自身接口读取数据——免 API Key（仅桌面端）。
+
+![设置：浏览器登录](img/08-settings-browser-login.png)
+
+1. 设置 → Feed → **浏览器登录**，在平台卡片（如 `x`）上点 **登录**。
+2. 应用会打开内置浏览器窗口，进入该平台的登录页——正常登录即可：
+
+   ![X 登录窗口](img/x-login-window.png)
+
+3. 登录成功后，卡片显示已连接的账号（「✓ 已连接 · 你的账号」）。随时可用每张卡的 **检测** 或顶部 **检测全部** 复核；会话过期后再点一次 **登录** 即可。
+4. 此后，渠道选「自动（按优先级）」的角色会自动经由这条已登录的内置浏览器渠道拉取。
+
+> 提示：所有需要登录的入口（添加向导的「去设置页登录」、首页的 🔑 数据源徽标）都会通过 `设置 → #feed/browser-login` 直接落到这张卡片。
+
+### 6.2 Feed 子页（socialdata.tools，可选）
+
+更想走云端拉取？到 [socialdata.tools/dashboard/api-keys](https://socialdata.tools/dashboard/api-keys) 注册并生成 API Key（按量计费），在 Feed 子页粘贴到 **socialdata.tools API Key（twitter 默认兜底）**，点 **保存**——保存即时生效，无需重启。
 
 ![设置：API Keys 与 Webhook](img/08-settings-apikeys.png)
 
-1. 到 [socialdata.tools/dashboard/api-keys](https://socialdata.tools/dashboard/api-keys) 注册并获取 API Key（按量计费）：在 dashboard 的 Overview 页点 **Generate API key** 生成，再回到本页粘贴。
-2. 在 **socialdata.tools API Key（twitter 默认兜底）** 输入框粘贴 Key，点 **保存**。保存即时生效，无需重启；Key 在页面上脱敏显示。
-
-### 6.2 登录账号
+### 6.3 登录账号
 
 ![设置：登录账号](img/08-settings-account.png)
 
 可修改控制台登录用户名/密码。此处保存的配置始终优先于部署 env；保存后立即生效；为空时依次回落到部署 env（`AUTH_USER/AUTH_PASS`）、默认值 `admin / 11111`。
 
-### 6.3 上游数据源（多 API 源）
+### 6.4 上游数据源（多 API 源）
 
 ![设置：上游数据源](img/09-settings-upstreams.png)
 
 - 点 **＋ 添加上游**，可接入多个数据源（名称、API 类型、Key、base_url、Cookie、轮询间隔、启用开关）。
 - 每行可 **测试**（试拉一次推文，显示条数与耗时）或删除。
-- 未配置专用上游时，使用 6.1 的默认 socialdata.tools Key 兜底。
+- 未配置专用上游时，使用 6.2 的默认 socialdata.tools Key 兜底。
 
 ---
 
