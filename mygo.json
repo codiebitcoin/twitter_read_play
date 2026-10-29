@@ -1,0 +1,19 @@
+{
+  "name": "Twitter Read Play",
+  "identifier": "io.github.codiebitcoin.twitter-read-play",
+  "version": "0.1.0",
+  "main": ".",
+  "out": "build",
+  "macos": {
+    "infoPlist": {
+      "LSEnvironment": {
+        "TRP_DESKTOP": "1"
+      }
+    }
+  },
+  "linux": {
+    "maintainer": "codiebitcoin",
+    "comment": "Twitter 新推文监控 → Codie 播报",
+    "categories": ["Network", "Utility"]
+  }
+}

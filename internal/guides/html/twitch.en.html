@@ -1,0 +1,55 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
+body{font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif;margin:0;padding:12px;color:#e6e8ee;background:transparent}
+h3{margin:0 0 8px;font-size:15px}h4{margin:14px 0 6px;font-size:13px}
+ol,ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:12px}
+table{width:100%;border-collapse:collapse;margin:4px 0}td{padding:3px 8px 3px 0;vertical-align:top}
+.why{opacity:.75}.note,.where{margin:4px 0}
+.warn{opacity:.9;color:#f0b45a}.docs a{color:#6ea8fe}
+.cta{margin:10px 0 12px}.cta a{display:inline-block;background:#9146ff;color:#fff!important;padding:9px 16px;border-radius:9px;text-decoration:none;font-weight:600;font-size:13px}.cta a:hover{opacity:.88}
+@media (prefers-color-scheme: light){body{color:#1f2328}code{background:rgba(0,0,0,.06)}.docs a{color:#0b57d0}.warn{color:#9a6700}}
+</style></head><body>
+<h3>twitch · Apply for EventSub chat OAuth</h3>
+<p class="cta"><a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Open the Twitch developer console</a></p>
+<p class="docs">Docs: <a href="https://dev.twitch.tv/docs/authentication/" target="_blank" rel="noreferrer">Twitch Authentication</a> ·
+<a href="https://dev.twitch.tv/docs/eventsub/websocket-reference/" target="_blank" rel="noreferrer">EventSub WebSocket</a></p>
+<p class="warn">Do not give this service your Twitch password. Sign in only through the official authorization-code popup.</p>
+
+<h4>How to apply</h4>
+<ol>
+<li>Open <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">dev.twitch.tv/console/apps</a> and sign in with the Twitch account you watch chat as.</li>
+<li>Click <b>Register Your Application</b>. Name can be anything (e.g. Codie Live Chat).</li>
+<li>OAuth Redirect URLs: <code>{{BASE}}/api/livechat/oauth/twitch/callback</code></li>
+<li>Category: <b>Application Integration</b>. After create, copy the <b>Client ID</b> and click New Secret for the <b>Client Secret</b>.</li>
+<li>Paste them here → <b>Sign in with Twitch</b>. The popup requests <code>user:read:chat</code>.</li>
+<li>The page then shows the Twitch login. New <code>twitch_eventsub</code> sources can leave Client ID / Token empty and reuse this account.</li>
+</ol>
+
+<h4>Permissions</h4>
+<p class="where"><b>Where:</b> requested by this app in the popup. You do not tick scopes in the Twitch console.</p>
+<table>
+<tr><td><code>user:read:chat</code></td><td class="why">Read channel chat as that user (EventSub <code>channel.chat.message</code> and friends).</td></tr>
+</table>
+
+<h4>Address to paste into the Twitch console</h4>
+<p>OAuth Redirect URL: <code>{{BASE}}/api/livechat/oauth/twitch/callback</code></p>
+<p class="warn">Must match the browser origin exactly. Locally this is often <code>http://127.0.0.1:8088/api/livechat/oauth/twitch/callback</code>.</p>
+
+<h4>Subscribe types (tick them when creating a source)</h4>
+<table>
+<tr><td><code>channel.chat.message</code></td><td class="why">Regular chat (recommended)</td></tr>
+<tr><td><code>channel.chat.notification</code></td><td class="why">Sub / raid / announcement</td></tr>
+<tr><td><code>channel.cheer</code></td><td class="why">Bits / Cheer</td></tr>
+<tr><td><code>channel.subscribe</code></td><td class="why">New subscribers</td></tr>
+<tr><td><code>channel.subscription.gift</code></td><td class="why">Gifted subs</td></tr>
+<tr><td><code>channel.subscription.message</code></td><td class="why">Sub messages</td></tr>
+</table>
+<p class="note"><code>channel</code> is the other side's login name, not the display name. The signed-in account must be able to join that chat (public channels are fine).</p>
+
+<h4>Don't skip these</h4>
+<ul>
+<li>Tokens live in the SQLite blob <code>livechat_oauth.json</code>. Do not commit the data directory.</li>
+<li>Sign-out clears tokens only; Client ID / Secret stay.</li>
+<li>If the popup is blocked, allow popups for this origin.</li>
+</ul>
+</body></html>

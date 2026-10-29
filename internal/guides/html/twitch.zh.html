@@ -1,0 +1,55 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><style>
+body{font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif;margin:0;padding:12px;color:#e6e8ee;background:transparent}
+h3{margin:0 0 8px;font-size:15px}h4{margin:14px 0 6px;font-size:13px}
+ol,ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:12px}
+table{width:100%;border-collapse:collapse;margin:4px 0}td{padding:3px 8px 3px 0;vertical-align:top}
+.why{opacity:.75}.note,.where{margin:4px 0}
+.warn{opacity:.9;color:#f0b45a}.docs a{color:#6ea8fe}
+.cta{margin:10px 0 12px}.cta a{display:inline-block;background:#9146ff;color:#fff!important;padding:9px 16px;border-radius:9px;text-decoration:none;font-weight:600;font-size:13px}.cta a:hover{opacity:.88}
+@media (prefers-color-scheme: light){body{color:#1f2328}code{background:rgba(0,0,0,.06)}.docs a{color:#0b57d0}.warn{color:#9a6700}}
+</style></head><body>
+<h3>twitch · 申请 EventSub 弹幕 OAuth</h3>
+<p class="cta"><a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">打开 Twitch 开发者控制台</a></p>
+<p class="docs">官方文档：<a href="https://dev.twitch.tv/docs/authentication/" target="_blank" rel="noreferrer">Twitch Authentication</a> ·
+<a href="https://dev.twitch.tv/docs/eventsub/websocket-reference/" target="_blank" rel="noreferrer">EventSub WebSocket</a></p>
+<p class="warn">不要把 Twitch 账号密码交给本服务。只在弹窗里走官方授权码。</p>
+
+<h4>申请步骤</h4>
+<ol>
+<li>打开 <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">dev.twitch.tv/console/apps</a>，用你的 Twitch 账号登录（和看直播的是同一个账号即可）。</li>
+<li>点 <b>Register Your Application</b>。Name 随意（例如 Codie Live Chat）。</li>
+<li>OAuth Redirect URLs 填：<code>{{BASE}}/api/livechat/oauth/twitch/callback</code></li>
+<li>Category 选 <b>Application Integration</b>。创建后打开应用，复制 <b>Client ID</b>，点 New Secret 生成 <b>Client Secret</b>。</li>
+<li>回到本页粘贴 Client ID / Secret → <b>用 Twitch 登录</b>。弹窗会申请 <code>user:read:chat</code>。</li>
+<li>成功后本页显示 Twitch login 名。新建 <code>twitch_eventsub</code> 源可把 Client ID / Token 留空，自动用这个账号订阅频道弹幕。</li>
+</ol>
+
+<h4>权限</h4>
+<p class="where"><b>位置：</b> 授权弹窗里由本服务请求，控制台不用单独勾 scope。</p>
+<table>
+<tr><td><code>user:read:chat</code></td><td class="why">以该用户身份读频道聊天（EventSub <code>channel.chat.message</code> 等）。</td></tr>
+</table>
+
+<h4>填到 Twitch 控制台的地址</h4>
+<p>OAuth Redirect URL：<code>{{BASE}}/api/livechat/oauth/twitch/callback</code></p>
+<p class="warn">必须和浏览器地址栏 origin 逐字一致。本地常见 <code>http://127.0.0.1:8088/api/livechat/oauth/twitch/callback</code>。</p>
+
+<h4>Subscribe 类型（建弹幕源时勾选）</h4>
+<table>
+<tr><td><code>channel.chat.message</code></td><td class="why">普通弹幕（建议必选）</td></tr>
+<tr><td><code>channel.chat.notification</code></td><td class="why">订阅 / raid / 公告</td></tr>
+<tr><td><code>channel.cheer</code></td><td class="why">Bits / Cheer</td></tr>
+<tr><td><code>channel.subscribe</code></td><td class="why">新订阅</td></tr>
+<tr><td><code>channel.subscription.gift</code></td><td class="why">礼物订阅</td></tr>
+<tr><td><code>channel.subscription.message</code></td><td class="why">订阅留言</td></tr>
+</table>
+<p class="note"><code>channel</code> 填对方的 login 名（不是显示名）。登录账号必须能进那个频道的聊天（公开频道即可）。</p>
+
+<h4>别漏了这几步</h4>
+<ul>
+<li>Token 存在本机 SQLite blobs <code>livechat_oauth.json</code>，不要把 data 目录提交到 git。</li>
+<li>退出登录只清 token，不删 Client ID / Secret。</li>
+<li>弹窗被拦：浏览器地址栏右侧允许本站弹出窗口。</li>
+</ul>
+</body></html>

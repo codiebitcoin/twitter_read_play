@@ -1,0 +1,23 @@
+# 根目录的构建/运行产物
+/dist/
+/data/
+/build/
+/release/
+/desktop-dist/
+/macos-dist/
+/artifacts/
+
+# 前端
+node_modules/
+front/dist/*
+!front/dist/.gitkeep
+
+# 本地产物与临时文件
+*.json.tmp
+.tmp/
+*.AppImage
+*.deb
+*.exe
+*.dmg
+.DS_Store
+.playwright-mcp/

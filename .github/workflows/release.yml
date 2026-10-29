@@ -1,0 +1,180 @@
+name: Release
+
+# 打 tag（v*）自动构建三平台安装包并发布到 GitHub Release；
+# 也可以手动触发，只为三平台各出一份构建工件（不发 Release）。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION_FILE: go.mod
+
+jobs:
+  # ---------------------------------------------------------------- Windows
+  windows:
+    name: Windows (exe + installer)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - name: Build frontend
+        working-directory: front
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set version from tag
+        shell: bash
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          if [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"$VER\"/" mygo.json
+          fi
+          grep '"version"' mygo.json
+
+      - name: Build Windows packages
+        run: go tool mygo build -platform windows/amd64 -o build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: build/windows-amd64/*.exe
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------ Linux
+  linux:
+    name: Linux (deb + AppImage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - name: Build frontend
+        working-directory: front
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set version from tag
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          if echo "$VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$'; then
+            sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"$VER\"/" mygo.json
+          fi
+          grep '"version"' mygo.json
+
+      # mygo 的 linux 产物同目录出 .deb 与 tar.gz，MyGo 自带桌面入口与 install.sh
+      - name: Build Linux packages
+        run: go tool mygo build -platform linux/amd64 -o build
+
+      - name: Build AppImage
+        run: sh scripts/make-appimage.sh build/linux-amd64 build/twitter-read-play-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            build/linux-amd64/*
+            build/*.AppImage
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------ macOS
+  macos:
+    name: macOS (app + dmg)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - name: Build frontend
+        working-directory: front
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set version from tag
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          if echo "$VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$'; then
+            sed -i '' "s/\"version\": *\"[^\"]*\"/\"version\": \"$VER\"/" mygo.json
+          fi
+          grep '"version"' mygo.json
+
+      # 通用二进制 + 原生压缩 dmg（hdiutil）；未配置签名身份时是 ad-hoc 签名
+      - name: Build macOS app and dmg
+        run: go tool mygo build -platform darwin/universal -o build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: |
+            build/darwin-universal/*.dmg
+            build/darwin-universal/*.app.tar.gz
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------- Release
+  release:
+    name: Publish
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Collect packages
+        run: |
+          mkdir -p out
+          find dist -type f \( -name '*.exe' -o -name '*.deb' -o -name '*.AppImage' \
+            -o -name '*.dmg' -o -name '*.tar.gz' \) -exec cp {} out/ \;
+          cd out && sha256sum * > SHA256SUMS.txt
+          ls -la
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true

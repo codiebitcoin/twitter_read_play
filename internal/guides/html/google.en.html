@@ -1,0 +1,59 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
+body{font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif;margin:0;padding:12px;color:#e6e8ee;background:transparent}
+h3{margin:0 0 8px;font-size:15px}h4{margin:14px 0 6px;font-size:13px}
+ol,ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:12px}
+table{width:100%;border-collapse:collapse;margin:4px 0}td{padding:3px 8px 3px 0;vertical-align:top}
+.why{opacity:.75}.note,.where{margin:4px 0}
+.warn{opacity:.9;color:#f0b45a}.docs a{color:#6ea8fe}
+.cta{margin:10px 0 12px}.cta a{display:inline-block;background:#3370ff;color:#fff!important;padding:9px 16px;border-radius:9px;text-decoration:none;font-weight:600;font-size:13px}.cta a:hover{opacity:.88}
+@media (prefers-color-scheme: light){body{color:#1f2328}code{background:rgba(0,0,0,.06)}.docs a{color:#0b57d0}.warn{color:#9a6700}}
+</style></head><body>
+<h3>google · Apply for YouTube live-chat OAuth</h3>
+<p class="cta"><a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noreferrer">Open Google Auth Platform</a></p>
+<p class="docs">Official: <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">Cloud Console</a> ·
+<a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer">YouTube Data API v3</a> ·
+<a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noreferrer">OAuth clients</a></p>
+<p class="warn">Do not give this service your Google password. Sign in only through the official authorization-code popup; passwords never reach the server.</p>
+
+<h4>What we actually applied (project fortest)</h4>
+<p class="note">Project name <code>fortest</code>, project ID <code>gen-lang-client-0945395730</code>. Use your own project if you prefer — the steps are the same.</p>
+<ol>
+<li>Sign in to Cloud Console with your own Google account (this run used <code>you@example.com</code>).</li>
+<li>Select project <b>fortest</b>.</li>
+<li><b>APIs &amp; Services → Library</b>: enable <b>YouTube Data API v3</b>. The success toast mentions <code>youtube.googleapis.com</code>.</li>
+<li><b>Google Auth Platform → Branding</b>: app name <code>Codie Live Chat</code> (shown on the consent screen); user type <b>External</b>; publishing status <b>Testing</b>; contact email = the signed-in account.</li>
+<li><b>Clients → Create client → Web application</b>:
+  <ul>
+    <li>Authorized JavaScript origins: <code>{{BASE}}</code></li>
+    <li>Authorized redirect URIs: <code>{{BASE}}/api/livechat/oauth/google/callback</code></li>
+  </ul>
+  Client ID / Secret appear once in the dialog — paste them into this Live page immediately. Do not commit them.</li>
+<li><b>Data Access → Add or remove scopes</b>: tick the two rows below, click Update, then Save. Success toast: data-access changes saved.</li>
+<li><b>Audience</b> stays in Testing. Add the Google account that will click Allow as a test user. The branding contact is sometimes already listed; adding the same address in another case may say “not eligible” — ignore that.</li>
+<li>Back here: paste Client ID / Secret → <b>Sign in with Google</b> → pick the account → Allow “view your YouTube account + email”.</li>
+<li>The page shows <code>✓ email</code>. New <code>youtube_api</code> sources can leave token / API Key empty and reuse this login.</li>
+</ol>
+
+<h4>How to enable permissions</h4>
+<p class="where"><b>Where:</b> Auth Platform → Data Access. The new console no longer uses the old “OAuth consent screen” wizard.</p>
+<table>
+<tr><td><code>https://www.googleapis.com/auth/youtube.readonly</code></td><td class="why">Read the live stream and liveChatMessages (pull chat).</td></tr>
+<tr><td><code>https://www.googleapis.com/auth/userinfo.email</code></td><td class="why">Show which Google account signed in.</td></tr>
+</table>
+<p class="warn">Enable YouTube Data API v3 first. Authorizing a disabled API fails later with 403 SERVICE_DISABLED.</p>
+
+<h4>Addresses to paste into the Google console</h4>
+<p>JavaScript origin: <code>{{BASE}}</code></p>
+<p>OAuth callback: <code>{{BASE}}/api/livechat/oauth/google/callback</code></p>
+<p class="warn">Must match the browser origin character-for-character (scheme, host, port, path). Locally this is often <code>http://127.0.0.1:8088</code> — do not swap in <code>localhost</code> or drop the port.</p>
+
+<h4>Don't skip these</h4>
+<ul>
+<li>External + Testing: only test users can Allow; the refresh token expires in about 7 days and needs a fresh sign-in.</li>
+<li>The Go process talking to <code>oauth2.googleapis.com</code> / <code>youtube.googleapis.com</code> often needs the system proxy. On macOS that is commonly <code>127.0.0.1:7892</code>. Start the server with <code>HTTPS_PROXY=http://127.0.0.1:7892</code>, otherwise token exchange dies with <code>context deadline exceeded</code>. A working browser session does not mean the Go process can reach Google.</li>
+<li>Tokens live in the SQLite blob <code>livechat_oauth.json</code>. Do not commit the data directory.</li>
+<li>Sign-out clears tokens only; Client ID / Secret stay.</li>
+<li>An API Key (Credentials → API key) also works without sign-in; default quota is 10k units/day and polling burns it quickly.</li>
+</ul>
+</body></html>

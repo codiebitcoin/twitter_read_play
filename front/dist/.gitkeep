@@ -1,0 +1,2 @@
+placeholder：前端构建产物（npm run build）会被写入本目录；
+保留此文件让 go:embed all:front/dist 在未构建前端时也能编译。

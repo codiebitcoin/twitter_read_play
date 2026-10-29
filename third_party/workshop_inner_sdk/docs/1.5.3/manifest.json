@@ -1,0 +1,53 @@
+{
+  "device_version": "1.5.3",
+  "source_branch": "1.5.3",
+  "source_commit": "7ea08ea359072bc10b56d5956c132e953ef9f1af",
+  "working_tree_dirty": false,
+  "generated_at_utc": "2026-10-15T11:06:47+00:00",
+  "http_operations": 103,
+  "http_paths": 83,
+  "guide_languages": [
+    "zh-CN",
+    "ja",
+    "en",
+    "de",
+    "fr"
+  ],
+  "validation": "公开 OpenAPI 与当前工作区源码同步；不包含工程编译或设备及云端 E2E 验证。",
+  "contract_sources": {
+    "docs/api/openapi.json": "d50e9442b22ecb0e5844471bb9e2501c38c17eb1c0f816eccd7e44d2c199c17f",
+    "src/framework/routes/routes.go": "a0b203fd210518061e63e61725a4884e13c3964f2bc5b09279b4cd3fcaa1539d",
+    "src/framework/routes/user_routes.go": "078c0f7b76c352e2bab7b78bf398ebab294de7b4a6eeca9a98ef0e3675393fcc",
+    "src/framework/routes/resource_routes.go": "9216c6780e38df341e0e2441e24859a15e6f53911893ccc9314871de68053d78",
+    "src/framework/routes/local_auth.go": "f9ffe95da42b64366f388e8567787c300070bd4cc4c41a212a1fbc4108d1c308",
+    "src/framework/auth/sign.go": "e10f1943a4c1dc84282348de6bc7aca6589ee8e88a88a8ed0d4a9b06660970a2",
+    "src/services/handlers_gin/web/user_config_gin.go": "b3de1b0ed5314e8e978bf26c1b2dca95e23e91e5f69a1817d0d25d6c7fa4ba84",
+    "src/services/handlers_gin/web/chat_turn_gin.go": "b91d9f3b8bbaa7b1b3cbcd1b9d2f9bb667da85b8be23db97bae0061edbe101e5",
+    "src/services/chatturn/turn.go": "c5591c3073899eb34fa39e4f81574d87b98d7dd81876ea04139ba768f8fcb40a",
+    "src/services/handlers_gin/web/speech_utterance_gin.go": "611c74a759b3cc9c25d1737f25079607b093c967eaa90351c2d6cb6265a1df90",
+    "src/services/interf/engine/chat_turn.go": "c2a21a9b4e34bcc0b00bc495a97103d2919869c1340bed2ef791adaa4e36f38b",
+    "src/services/interf/engine/handle_v2_command.go": "7f5fcb8b73e7027d099de85dc8789634e3c851726f382a7d726891f097815eb5",
+    "src/services/interf/engine/stream_engine.go": "a4454b94257420ec007f2452ebb854ef4eac0bb34b085d8dab2239b00667350c",
+    "src/services/interf/engine/response_handlers.go": "8c2b29d13bac56ceca67c76a712c64ea8cfd35bf05c6833fe69e63f2be94d731",
+    "src/services/interf/engine/handle_anim.go": "fd9f48bc7a22282ee74b753732c1bf96b9ebbfd7b4526b347cbfe6c0958e2367",
+    "src/services/interf/e2e/e2e_orchestrator.go": "cb67a9b103559acd4636d60ea757ac4d8738787a18d4413ea61d3663b6759063",
+    "src/services/interf/e2e/e2e_runtime_state.go": "a14041f43c0070f136fa639a3c4c1fa9984402ea26f34103f087a5388f038473",
+    "src/services/interf/e2e/e2e_config.go": "b92cbb0af1067951bc67f44edbc274bf290e640a3e78a0330a2adb69cdb34884"
+  },
+  "files": {
+    "index.html": "0ac843807cb1c1d88445b5003e6de11bac29352126f0ecbd1827e42195130d9f",
+    "openapi.json": "537bedf33f7dbc2289ee57eb9a5ba6c87fb81d0fbcce865458eaadd085f6a959",
+    "examples/local_api.py": "d0a4463ad88b68121dd46a3843f8e168bc9e002e4ed76fd0daef51ccdccbe589",
+    "examples/local_api.mjs": "0034574d49900a96cc9f40b90aaf7d24feefb8259396595fbef958ce61bced3a",
+    "GUIDE.zh-CN.md": "1b8e196fd282f73dc6732e93ba94cbf3672348299a09718d29244649881ac4cc",
+    "guide.zh-CN.html": "9b8e2ef4c3ee65ca8d0499f3625cb7139fd6eee83f5fc7d22bf7d82c04930f2b",
+    "GUIDE.ja.md": "12a32c645c2991cfb917a771eb5bceebc4b00132d2096521bbb3e99134b8d597",
+    "guide.ja.html": "507768023ef11cf04519955310ce1b9a54de1f60178e74193cba8d2bc0a92a90",
+    "GUIDE.en.md": "a28a3a608a2d2ce580e91e715c1339f54e04f3aa2d1cc7129f5fba87e475dacb",
+    "guide.en.html": "41406680175c6fb537ea94b4962ab724d71b8ac557a6980fed915786dd184f1b",
+    "GUIDE.de.md": "b271991bb6cc585c6cea6c45d5168e14d1056f7ac68858ca82514d31ace08636",
+    "guide.de.html": "754ae76cead6ba012b7a3b7aca3f08121eb379a95474567dbb454cfd3c015f43",
+    "GUIDE.fr.md": "92a5985d769d6e6d36505a3b8244adf6ac2156707ccbb202964608603385c2b2",
+    "guide.fr.html": "3a609fc198b5748b0f893564a5b12113b8a85fe95664243bfcf54dffcfd5b9f9"
+  }
+}

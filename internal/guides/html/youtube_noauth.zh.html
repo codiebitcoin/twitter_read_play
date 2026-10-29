@@ -1,0 +1,20 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><style>
+body{font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif;margin:0;padding:12px;color:#e6e8ee;background:transparent}
+h3{margin:0 0 8px;font-size:15px}h4{margin:14px 0 6px;font-size:13px}
+ol,ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:12px}
+.why{opacity:.75}.note{margin:4px 0}
+.warn{opacity:.9;color:#f0b45a}.docs a{color:#6ea8fe}
+.cta{margin:10px 0 12px}.cta a{display:inline-block;background:#3370ff;color:#fff!important;padding:9px 16px;border-radius:9px;text-decoration:none;font-weight:600;font-size:13px}.cta a:hover{opacity:.88}
+@media (prefers-color-scheme: light){body{color:#1f2328}code{background:rgba(0,0,0,.06)}.docs a{color:#0b57d0}.warn{color:#9a6700}}
+</style></head><body>
+<h3>YouTube 免认证 · innertube</h3>
+<p class="cta"><a href="https://github.com/abhinavxd/youtube-live-chat-downloader" target="_blank" rel="noreferrer">打开 youtube-live-chat-downloader</a></p>
+<p class="docs">远程框架已集成进后台 <code>third_party/livechat</code>：拉直播页 HTML 抽出 continuation，再循环 POST <code>youtubei/v1/live_chat/get_live_chat</code>。不需要 Google OAuth / API Key。</p>
+<ol>
+<li>频道填正在直播的 YouTube URL 或 11 位 video id。</li>
+<li>国内访问 YouTube 必须给本服务设 <code>HTTPS_PROXY</code>（本机常用 <code>http://127.0.0.1:7892</code>）。</li>
+<li>回放 / 未开播会报 <code>stream not live</code>，换一个正在播的链接。</li>
+</ol>
+<p class="warn">这路靠非官方 innertube 协议，页面改版可能失效。有 Google 登录时优先用 YouTube Live API。</p>
+</body></html>

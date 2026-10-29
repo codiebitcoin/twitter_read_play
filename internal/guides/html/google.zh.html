@@ -1,0 +1,59 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><style>
+body{font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif;margin:0;padding:12px;color:#e6e8ee;background:transparent}
+h3{margin:0 0 8px;font-size:15px}h4{margin:14px 0 6px;font-size:13px}
+ol,ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:12px}
+table{width:100%;border-collapse:collapse;margin:4px 0}td{padding:3px 8px 3px 0;vertical-align:top}
+.why{opacity:.75}.note,.where{margin:4px 0}
+.warn{opacity:.9;color:#f0b45a}.docs a{color:#6ea8fe}
+.cta{margin:10px 0 12px}.cta a{display:inline-block;background:#3370ff;color:#fff!important;padding:9px 16px;border-radius:9px;text-decoration:none;font-weight:600;font-size:13px}.cta a:hover{opacity:.88}
+@media (prefers-color-scheme: light){body{color:#1f2328}code{background:rgba(0,0,0,.06)}.docs a{color:#0b57d0}.warn{color:#9a6700}}
+</style></head><body>
+<h3>google · 申请 YouTube 弹幕 OAuth</h3>
+<p class="cta"><a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noreferrer">打开 Google Auth Platform</a></p>
+<p class="docs">官方入口：<a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">Cloud Console</a> ·
+<a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer">YouTube Data API v3</a> ·
+<a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noreferrer">OAuth 客户端</a></p>
+<p class="warn">不要把 Google 账号密码交给本服务。只在浏览器里走官方授权码；密码不会进本机。</p>
+
+<h4>本次实操（fortest 项目）</h4>
+<p class="note">项目名 <code>fortest</code>，项目 ID <code>gen-lang-client-0945395730</code>。可以换自己的项目，步骤相同。</p>
+<ol>
+<li>用你自己的 Google 账号登录 Cloud Console（实操账号 <code>you@example.com</code>）。</li>
+<li>选中项目 <b>fortest</b>。</li>
+<li><b>API 和服务 → 库</b> 搜索并启用 <b>YouTube Data API v3</b>。成功后通知里会出现 <code>youtube.googleapis.com</code>。</li>
+<li><b>Google Auth Platform → 品牌</b>：应用名称填 <code>Codie Live Chat</code>（同意页上显示的名字）；用户类型选 <b>外部</b>；发布状态保持 <b>测试</b>；联系邮箱用登录账号。</li>
+<li><b>用户端 → 建立客户端 → Web application</b>：
+  <ul>
+    <li>已授权的 JavaScript 来源：<code>{{BASE}}</code></li>
+    <li>已授权的重定向 URI：<code>{{BASE}}/api/livechat/oauth/google/callback</code></li>
+  </ul>
+  Client ID / Secret 只在创建弹窗出现一次，立刻填到本页「直播」卡，不要写进仓库。</li>
+<li><b>资料存取权 → 新增或移除范围</b>，勾选下表两行，点「更新」再点 Save。成功提示：已保存资料存取权变更。</li>
+<li><b>目标对象</b> 保持测试中；把要点「允许」的 Google 账号加进测试用户。品牌联系邮箱有时已经在列表里；再加一遍小写邮箱可能报「不符合资格」，忽略即可。</li>
+<li>回到本页粘贴 Client ID / Secret → <b>用 Google 登录</b> → 选账号 → 允许「查看 YouTube 账户 + 邮箱」。</li>
+<li>成功后本页显示 <code>✓ 邮箱</code>。之后新建 <code>youtube_api</code> 源可把 token / API Key 留空，自动带上这个账号。</li>
+</ol>
+
+<h4>权限怎么开</h4>
+<p class="where"><b>位置：</b> Auth Platform → 资料存取权（Data Access）。新控制台不再走旧的「OAuth 同意屏幕」向导。</p>
+<table>
+<tr><td><code>https://www.googleapis.com/auth/youtube.readonly</code></td><td class="why">读直播间与 liveChatMessages（拉弹幕）。</td></tr>
+<tr><td><code>https://www.googleapis.com/auth/userinfo.email</code></td><td class="why">回显登录的是哪个 Google 账号。</td></tr>
+</table>
+<p class="warn">对应后端开关必须先启用 YouTube Data API v3，否则授权后调接口报 403 SERVICE_DISABLED。</p>
+
+<h4>填到 Google 控制台的地址</h4>
+<p>JavaScript 来源：<code>{{BASE}}</code></p>
+<p>OAuth 回调：<code>{{BASE}}/api/livechat/oauth/google/callback</code></p>
+<p class="warn">必须和浏览器地址栏 origin 逐字一致（含 <code>http</code>/<code>https</code>、主机、端口、路径）。本地常见是 <code>http://127.0.0.1:8088</code>，不要写成 <code>localhost</code> 或漏端口。</p>
+
+<h4>别漏了这几步</h4>
+<ul>
+<li>外部 + 测试：只有测试用户能点允许；refresh token 大约 7 天过期，需要重新登录。</li>
+<li>本机 Go 进程访问 <code>oauth2.googleapis.com</code> / <code>youtube.googleapis.com</code> 往往要走系统代理。macOS 上常见 <code>127.0.0.1:7892</code>。启动时带 <code>HTTPS_PROXY=http://127.0.0.1:7892</code>，否则换 token 会 <code>context deadline exceeded</code>。浏览器能打开 Google 不等于 Go 进程也能连上。</li>
+<li>Token 存在本机 SQLite blobs <code>livechat_oauth.json</code>，不要把 data 目录提交到 git。</li>
+<li>退出登录只清 token，不删 Client ID / Secret。</li>
+<li>也可以只用 API Key（凭据 → API 密钥）不登录；配额默认 1 万单位/天，轮询较吃配额。</li>
+</ul>
+</body></html>

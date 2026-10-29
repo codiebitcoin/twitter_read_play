@@ -1,0 +1,22 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><style>
+body{font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif;margin:0;padding:12px;color:#e6e8ee;background:transparent}
+h3{margin:0 0 8px;font-size:15px}h4{margin:14px 0 6px;font-size:13px}
+ol,ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:12px}
+.why{opacity:.75}.note{margin:4px 0}
+.warn{opacity:.9;color:#f0b45a}.docs a{color:#6ea8fe}
+.cta{margin:10px 0 12px}.cta a{display:inline-block;background:#3370ff;color:#fff!important;padding:9px 16px;border-radius:9px;text-decoration:none;font-weight:600;font-size:13px}.cta a:hover{opacity:.88}
+@media (prefers-color-scheme: light){body{color:#1f2328}code{background:rgba(0,0,0,.06)}.docs a{color:#0b57d0}.warn{color:#9a6700}}
+</style></head><body>
+<h3>Bilibili · blivedm-go 弹幕</h3>
+<p class="cta"><a href="https://github.com/Akegarasu/blivedm-go" target="_blank" rel="noreferrer">打开 blivedm-go 仓库</a></p>
+<p class="docs">B 站没有对第三方开放的官方弹幕 pull API（开放平台 Open Live 只给主播自己的应用）。公开房间走 WebSocket 协议，本路用社区 SDK <code>github.com/Akegarasu/blivedm-go</code>。</p>
+<ol>
+<li>频道填房间号（如 <code>6</code>）或 <code>https://live.bilibili.com/6</code>。</li>
+<li>也可以点直播页上的「随机一路 B站」：从公开推荐列表抽一路正在播的。</li>
+<li>Cookie：优先在设置页「直播」顶部填一次全局 <code>SESSDATA</code> + <code>bili_jct</code>；单路留空会自动带上。B 站反爬改版后游客 <code>getDanmuInfo</code> 返回 <code>-352</code>，能连上但弹幕为空。</li>
+<li>从已登录 <code>live.bilibili.com</code> 的浏览器开发者工具复制 Cookie（SDK 缺 SESSDATA 或 bili_jct 会报「账号未登录」）。</li>
+</ol>
+<p class="warn">不要把 B 站账号密码写进配置。Cookie 只存在本机 SQLite，不要提交到仓库。</p>
+<p class="note">弹幕 / 醒目留言 / 礼物都会归一成同一条 Message（kind = text / superchat / cheer）。</p>
+</body></html>

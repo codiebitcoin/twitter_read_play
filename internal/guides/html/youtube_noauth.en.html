@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
+body{font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif;margin:0;padding:12px;color:#e6e8ee;background:transparent}
+h3{margin:0 0 8px;font-size:15px}h4{margin:14px 0 6px;font-size:13px}
+ol,ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:12px}
+.why{opacity:.75}.note{margin:4px 0}
+.warn{opacity:.9;color:#f0b45a}.docs a{color:#6ea8fe}
+.cta{margin:10px 0 12px}.cta a{display:inline-block;background:#3370ff;color:#fff!important;padding:9px 16px;border-radius:9px;text-decoration:none;font-weight:600;font-size:13px}.cta a:hover{opacity:.88}
+@media (prefers-color-scheme: light){body{color:#1f2328}code{background:rgba(0,0,0,.06)}.docs a{color:#0b57d0}.warn{color:#9a6700}}
+</style></head><body>
+<h3>YouTube no-auth · innertube</h3>
+<p class="cta"><a href="https://github.com/abhinavxd/youtube-live-chat-downloader" target="_blank" rel="noreferrer">Open youtube-live-chat-downloader</a></p>
+<p class="docs">The remote framework is vendored in <code>third_party/livechat</code>: fetch the watch page, extract a continuation token, then loop POST <code>youtubei/v1/live_chat/get_live_chat</code>. No Google OAuth or API Key.</p>
+<ol>
+<li>Channel = a currently live YouTube URL or 11-char video id.</li>
+<li>If YouTube is blocked, set <code>HTTPS_PROXY</code> on the server (e.g. <code>http://127.0.0.1:7892</code>).</li>
+<li>VODs / offline videos return <code>stream not live</code> — pick a live one.</li>
+</ol>
+<p class="warn">This uses an unofficial innertube protocol and can break when YouTube changes the page. Prefer YouTube Live API when Google login is available.</p>
+</body></html>

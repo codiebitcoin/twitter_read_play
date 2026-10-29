@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
+body{font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif;margin:0;padding:12px;color:#e6e8ee;background:transparent}
+h3{margin:0 0 8px;font-size:15px}h4{margin:14px 0 6px;font-size:13px}
+ol,ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:12px}
+.why{opacity:.75}.note{margin:4px 0}
+.warn{opacity:.9;color:#f0b45a}.docs a{color:#6ea8fe}
+.cta{margin:10px 0 12px}.cta a{display:inline-block;background:#3370ff;color:#fff!important;padding:9px 16px;border-radius:9px;text-decoration:none;font-weight:600;font-size:13px}.cta a:hover{opacity:.88}
+@media (prefers-color-scheme: light){body{color:#1f2328}code{background:rgba(0,0,0,.06)}.docs a{color:#0b57d0}.warn{color:#9a6700}}
+</style></head><body>
+<h3>chat-downloader · no-auth fallback</h3>
+<p class="cta"><a href="https://github.com/xenova/chat-downloader" target="_blank" rel="noreferrer">Open the chat-downloader repo</a></p>
+<p class="docs">This source does not use OAuth. The server runs <code>python3 -m chat_downloader</code> and reads JSON lines from stdout.</p>
+<ol>
+<li>On the machine that runs this service: <code>pip install chat-downloader</code> (or <code>pip3</code>).</li>
+<li>On this page click <b>New source</b>, pick <b>chat-downloader</b>, and paste any live / VOD URL it supports (YouTube, Twitch…).</li>
+<li>Python path defaults to <code>python3</code>; set an absolute path if it is not on PATH.</li>
+<li><code>extra_args</code> is passed through to the CLI, e.g. <code>--start_time 0</code>.</li>
+</ol>
+<p class="warn">Official Twitch EventSub / YouTube Live API are stabler and lower-latency. Use this path when you cannot get an official token, or when you need VODs.</p>
+<p class="note">The child process is killed on stop; after a stream ends the Manager restarts it.</p>
+</body></html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Codie Media Broadcast</title>
+<style>
+:root, html[data-theme='dark'] {
+  color-scheme:dark;
+  --fg:#e9edf6; --mut:#98a2b8; --acc:#6f9bff; --acc-2:#a76fff; --acc-hover:#86aaff;
+  --bad:#ff6b6b; --warn:#efb95e;
+  --card:rgba(24,29,44,.62); --line:rgba(255,255,255,.10); --field:rgba(9,12,20,.55);
+  --aurora-1:rgba(111,155,255,.20); --aurora-2:rgba(167,111,255,.14); --aurora-3:rgba(76,214,139,.10);
+  --shadow:0 16px 56px rgba(2,6,18,.55); --btn-text:#fff; --bg:#0b0e17;
+}
+html[data-theme='light'] {
+  color-scheme:light;
+  --fg:#1b2333; --mut:#5a6579; --acc:#3a6ce5; --acc-2:#7c4fe0; --acc-hover:#2c5bcf;
+  --bad:#d64545; --warn:#a9741a;
+  --card:rgba(255,255,255,.64); --line:rgba(15,23,42,.12); --field:rgba(255,255,255,.72);
+  --aurora-1:rgba(58,108,229,.12); --aurora-2:rgba(124,79,224,.09); --aurora-3:rgba(23,143,86,.08);
+  --shadow:0 16px 48px rgba(30,45,80,.16); --btn-text:#fff; --bg:#e9eef8;
+}
+* { box-sizing:border-box; }
+body { margin:0; font:14px/1.6 system-ui,"PingFang SC","Microsoft YaHei",sans-serif; color:var(--fg);
+  min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+  background:var(--bg); }
+body::before { content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(880px 600px at 10% -10%, var(--aurora-1), transparent 62%),
+    radial-gradient(820px 540px at 92% 4%, var(--aurora-2), transparent 62%),
+    radial-gradient(760px 520px at 50% 112%, var(--aurora-3), transparent 62%); }
+.card { background:var(--card); border:1px solid var(--line); border-top:1px solid rgba(255,255,255,.14);
+  border-radius:18px; padding:36px 32px 28px; width:380px; max-width:100%;
+  box-shadow:var(--shadow); backdrop-filter:blur(20px) saturate(1.5); -webkit-backdrop-filter:blur(20px) saturate(1.5); }
+h1 { font-size:17px; margin:0 0 24px; text-align:center; letter-spacing:.3px; }
+label { display:block; font-size:12px; color:var(--mut); margin:14px 0 5px; }
+input { width:100%; background:var(--field); border:1px solid var(--line); color:var(--fg); padding:10px 12px;
+  border-radius:12px; font:inherit; transition:border-color .15s; }
+input:focus { border-color:var(--acc); outline:none; }
+button { width:100%; margin-top:24px; background:linear-gradient(135deg,var(--acc),var(--acc-2)); color:var(--btn-text); border:none; padding:10px;
+  border-radius:12px; cursor:pointer; font-size:14px; transition:background .15s, opacity .15s;
+  box-shadow:0 2px 12px rgba(111,155,255,.2); }
+button:hover { background:linear-gradient(135deg,var(--acc-hover),var(--acc)); }
+button:disabled { opacity:.6; cursor:not-allowed; }
+.err { color:var(--bad); font-size:13px; margin-top:14px; min-height:18px; text-align:center; }
+.warn { color:var(--warn); font-size:12px; text-align:right; margin-top:4px; min-height:16px; }
+.foot { margin-top:18px; text-align:center; font-size:12px; color:var(--mut); }
+.theme { position:fixed; top:16px; right:16px; width:auto; margin:0; padding:6px 12px; border-radius:99px;
+  background:var(--card); border:1px solid var(--line); color:var(--fg); font-size:13px;
+  backdrop-filter:blur(20px) saturate(1.5); -webkit-backdrop-filter:blur(20px) saturate(1.5); box-shadow:none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="var(--acc)" style="vertical-align:-3px;margin-right:8px"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg>Codie Media Broadcast</h1>
+  <form id="f">
+    <label><span id="l-user">用户名</span><input id="u" autocomplete="username" autofocus></label>
+    <label><span id="l-pass">密码</span><input id="p" type="password" autocomplete="current-password"></label>
+    <div class="warn" id="caps"></div>
+    <button id="btn">登录</button>
+    <div class="err" id="e" role="alert"></div>
+  </form>
+  <div class="foot" id="foot">Media broadcast dashboard</div>
+</div>
+<script>
+const zh = (navigator.language || '').toLowerCase().startsWith('zh');
+const T = {
+  user: zh ? '用户名' : 'Username',
+  pass: zh ? '密码' : 'Password',
+  btn: zh ? '登录' : 'Sign in',
+  btnBusy: zh ? '登录中…' : 'Signing in…',
+  badCreds: zh ? '用户名或密码错误' : 'Invalid username or password',
+  netErr: zh ? '网络错误：' : 'Network error: ',
+  failed: zh ? '登录失败' : 'Sign-in failed',
+  caps: zh ? 'Caps Lock 已开启' : 'Caps Lock is on',
+  foot: zh ? '媒体播报控制台' : 'Media broadcast dashboard',
+};
+document.getElementById('l-user').textContent = T.user;
+document.getElementById('l-pass').textContent = T.pass;
+document.getElementById('btn').textContent = T.btn;
+document.getElementById('foot').textContent = T.foot;
+document.title = (zh ? '登录 · ' : 'Sign in · ') + 'Codie Media Broadcast';
+
+// ---- 主题（与 SPA 一致：localStorage 优先，否则跟随系统）----
+const themeBtn = document.createElement('button');
+themeBtn.className = 'theme'; themeBtn.type = 'button';
+document.body.appendChild(themeBtn);
+function applyTheme(th) {
+  document.documentElement.dataset.theme = th;
+  themeBtn.textContent = th === 'light' ? '🌙 夜晚' : '☀️ 白天';
+  try { localStorage.setItem('theme', th); } catch {}
+}
+applyTheme(localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+themeBtn.onclick = () => applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+
+// Caps Lock 检测
+const capsEl = document.getElementById('caps');
+document.getElementById('p').addEventListener('keydown', (ev) => {
+  if (ev.getModifierState) capsEl.textContent = ev.getModifierState('CapsLock') ? 'ⓘ ' + T.caps : '';
+});
+document.getElementById('p').addEventListener('blur', () => capsEl.textContent = '');
+
+document.getElementById('f').onsubmit = async (ev) => {
+  ev.preventDefault();
+  const btn = document.getElementById('btn');
+  btn.disabled = true; btn.textContent = T.btnBusy;
+  document.getElementById('e').textContent = '';
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: u.value, pass: p.value })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok) location.href = '/';
+    else if (res.status === 401) document.getElementById('e').textContent = data.error || T.badCreds;
+    else document.getElementById('e').textContent = data.error || (T.failed + ' (HTTP ' + res.status + ')');
+  } catch (e) {
+    document.getElementById('e').textContent = T.netErr + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = T.btn;
+  }
+};
+</script>
+</body>
+</html>

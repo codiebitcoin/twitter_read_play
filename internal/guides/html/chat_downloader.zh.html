@@ -1,0 +1,22 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><style>
+body{font:13px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif;margin:0;padding:12px;color:#e6e8ee;background:transparent}
+h3{margin:0 0 8px;font-size:15px}h4{margin:14px 0 6px;font-size:13px}
+ol,ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:12px}
+.why{opacity:.75}.note{margin:4px 0}
+.warn{opacity:.9;color:#f0b45a}.docs a{color:#6ea8fe}
+.cta{margin:10px 0 12px}.cta a{display:inline-block;background:#3370ff;color:#fff!important;padding:9px 16px;border-radius:9px;text-decoration:none;font-weight:600;font-size:13px}.cta a:hover{opacity:.88}
+@media (prefers-color-scheme: light){body{color:#1f2328}code{background:rgba(0,0,0,.06)}.docs a{color:#0b57d0}.warn{color:#9a6700}}
+</style></head><body>
+<h3>chat-downloader · 免认证兜底</h3>
+<p class="cta"><a href="https://github.com/xenova/chat-downloader" target="_blank" rel="noreferrer">打开 chat-downloader 仓库</a></p>
+<p class="docs">这路不走 OAuth。服务端本机调 <code>python3 -m chat_downloader</code>，从 stdout 读 JSON 行。</p>
+<ol>
+<li>在跑本服务的机器上安装：<code>pip install chat-downloader</code>（或 <code>pip3</code>）。</li>
+<li>本页「新建弹幕源」选 <b>chat-downloader</b>，频道填任意它支持的直播 / 回放 URL（YouTube、Twitch…）。</li>
+<li>Python 路径默认 <code>python3</code>；解释器不在 PATH 时改成绝对路径。</li>
+<li><code>extra_args</code> 可透传 CLI，例如 <code>--start_time 0</code>。</li>
+</ol>
+<p class="warn">官方 Twitch EventSub / YouTube Live API 更稳、延迟更低。这路只在拿不到官方 token、或要拉回放时用。</p>
+<p class="note">子进程随停止被杀掉；直播结束后 Manager 会重启子进程再拉。</p>
+</body></html>
