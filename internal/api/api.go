@@ -1,5 +1,6 @@
 // Package api HTTP 接口层（stdlib net/http，Go 1.22 method pattern）。
-// 登录：POST /api/login 换 session cookie；其余接口与页面需已登录。
+// 登录：POST /api/login 换 session cookie；其余接口与页面需已登录
+// （桌面模式改用 /desktop-start?t= 换凭据 + Host/Origin 校验，见 auth()）。
 // 页面路由（SPA，子目录）：/machines、/roles、/roles/{id}、/settings。
 package api
 
