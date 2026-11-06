@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -89,8 +90,42 @@ func (m *Manager) seedRoleAssets() {
 	log.Printf("[role] 空库初始化：已插入初始角色 %q 并从 embed 拷贝资源到 %s", r.Name, dir)
 }
 
+// ValidRoleID 角色 ID 只允许字母/数字/下划线/连字符（服务端生成的 r-{UnixNano}、
+// 种子角色 musk 都符合）。ID 会拼进素材落盘路径，含 / 或 .. 的 ID 可把文件写到
+// data/ 之外（H3），入口处一律拒绝。
+var roleIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+func ValidRoleID(id string) bool { return roleIDRe.MatchString(id) }
+
+// assetFileRe 素材文件名单段（SaveAsset 的 base+ext 产物）。
+var assetFileRe = regexp.MustCompile(`^[\w.-]+$`)
+
+// assetRelValid 素材相对路径必须形如 roles/{合法角色ID}/{单段文件名}，
+// 拒绝 ..、绝对路径、多级子目录（H3 路径穿越：icon 等字段历史上直接取客户端 JSON）。
+func assetRelValid(rel string) bool {
+	if rel == "" || strings.Contains(rel, "\\") {
+		return false
+	}
+	parts := strings.Split(rel, "/")
+	if len(parts) != 3 || parts[0] != "roles" || !ValidRoleID(parts[1]) {
+		return false
+	}
+	f := parts[2]
+	return f != "." && f != ".." && assetFileRe.MatchString(f)
+}
+
+// AssetOwned rel 是否为该角色名下的合法素材路径（格式合法 + 归属角色匹配）。
+// 保存角色时校验客户端回传的素材字段用：白名单来自服务端写入的值才有意义，
+// 客户端手工指定的路径（如 ../app.db）在这里被拒。
+func AssetOwned(roleID, rel string) bool {
+	return assetRelValid(rel) && strings.SplitN(rel, "/", 3)[1] == roleID
+}
+
 // SaveAsset 角色资源（VRM / 语音样本）落盘到 data/roles/{id}/，返回相对路径。
 func (m *Manager) SaveAsset(roleID, base, ext string, data []byte) (string, error) {
+	if !ValidRoleID(roleID) {
+		return "", fmt.Errorf("非法角色 ID %q", roleID)
+	}
 	if _, err := m.Get(roleID); err != nil {
 		return "", err
 	}
@@ -105,9 +140,10 @@ func (m *Manager) SaveAsset(roleID, base, ext string, data []byte) (string, erro
 	return rel, nil
 }
 
-// AssetPath 相对路径 → 绝对路径（data/ 下）。
+// AssetPath 相对路径 → 绝对路径（data/ 下）。解析后必须仍位于 data/roles/{角色ID}/ 内，
+// 非法路径返回 ""（调用方 ReadFile/Remove 自然失败），不再裸拼接（H3）。
 func (m *Manager) AssetPath(rel string) string {
-	if rel == "" {
+	if !assetRelValid(rel) {
 		return ""
 	}
 	return m.st.Dir + "/" + rel

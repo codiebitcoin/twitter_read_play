@@ -58,7 +58,7 @@ docker run -d -p 8080:8080 -v trp-data:/app/data \
 # open http://localhost:8080 and sign in
 ```
 
-Set the sign-in credentials via environment variables; page-saved values win: **Settings → Account > env (`AUTH_USER` / `AUTH_PASS`) > default `admin / 11111`**.
+Preset the sign-in credentials via environment variables; page-saved values win: **Settings → Account (stored as a bcrypt hash) > env (`AUTH_USER` / `AUTH_PASS`)**. With neither set, the sign-in page asks you to create the account on first open — there is no built-in default password.
 
 ![Login](img/en/01-login.png)
 
@@ -223,7 +223,7 @@ Prefer cloud fetching? Register at [socialdata.tools/dashboard/api-keys](https:/
 
 ![Settings: account](img/en/08-settings-account.png)
 
-Change the console sign-in username/password. Values saved here always take priority over the deployment env; they take effect immediately. When empty, the value falls back to env (`AUTH_USER` / `AUTH_PASS`), then the default `admin / 11111`.
+Change the console sign-in username/password. Values saved here always take priority over the deployment env and the password is stored as a bcrypt hash; they take effect immediately. When empty, the value falls back to env (`AUTH_USER` / `AUTH_PASS`).
 
 ### 6.4 Upstreams (multiple sources)
 

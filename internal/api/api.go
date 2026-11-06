@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -58,9 +59,13 @@ type Server struct {
 
 	logins *loginGuard // /api/login 防爆破（进程内存态）
 
-	// Desktop 桌面模式（本机单机窗口）：未配置任何账号密码时直接放行 ——
-	// 否则单机用户会因为登录接口必然 401 而永远卡在登录页。服务端部署不设该字段。
+	// Desktop 桌面模式（本机单机窗口）：不做账号密码，但 Host/Origin/桌面凭据
+	// 仍校验（见 auth 内的 Desktop 分支与 desktopStart）。服务端部署不设该字段。
 	Desktop bool
+
+	// DesktopToken 桌面模式凭据（ServeDesktop 每次启动随机生成）。
+	// 为空（内嵌调用方未注入）时跳过凭据校验，维持旧行为。
+	DesktopToken string
 
 	// PCMode PC 模式（打包期 -X main.pcMode=1 / 桌面打包自动置位）：无公网回调地址，
 	// /api/setup/status 返回 pc_mode=true，前端隐藏 webhook 反向通知等回调配置。
@@ -73,11 +78,10 @@ type Server struct {
 
 const sessionCookie = "trp_session"
 
-// 默认登录账号：db / env 都未配置时的兜底，可用 AUTH_USER / AUTH_PASS 覆盖。
-const (
-	DefaultAuthUser = "admin"
-	DefaultAuthPass = "11111"
-)
+// DefaultAuthUser 登录用户名兜底（db / env 都未配置时）。密码不再有默认值
+// （M3：默认 admin/11111 可直接进后台）——未配置密码时登录页转为「首次设置」，
+// 或用 AUTH_PASS env 预置。
+const DefaultAuthUser = "admin"
 
 //go:embed login.html
 var loginHTML []byte
@@ -100,14 +104,17 @@ func (s *Server) loginGuard() *loginGuard {
 	return s.logins
 }
 
-func (s *Server) authPass() string {
+// authPass 生效的口令存储值：DB（明文或 bcrypt: 哈希）> env AUTH_PASS（明文）。
+// 都未配置时返回 ""（未初始化，登录一律失败，登录页转首次设置流程）。
+// 注意：返回的是存储原文（可能是哈希），校验请走 verifyStoredPass。
+func (s *Server) authPass() (v string, fromDB bool) {
 	if v, _ := s.Store.GetSetting("auth_pass"); v != "" {
-		return v
+		return v, true
 	}
 	if s.EnvAuthPass != "" {
-		return s.EnvAuthPass
+		return s.EnvAuthPass, false
 	}
-	return DefaultAuthPass
+	return "", false
 }
 
 func (s *Server) Routes() http.Handler {
@@ -115,6 +122,11 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) { s.json(w, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("POST /api/login", s.login)
 	mux.HandleFunc("POST /api/logout", s.logout)
+	// 首次设置账号（M3：去掉默认密码后的初始化入口）；状态查询给登录页切换表单用
+	mux.HandleFunc("GET /api/auth/status", s.authStatus)
+	mux.HandleFunc("POST /api/setup/auth", s.setupAuth)
+	// 桌面窗口入口（H4）：?t= 换会话 cookie，仅桌面模式可达
+	mux.HandleFunc("GET /desktop-start", s.desktopStart)
 
 	// 机器
 	mux.HandleFunc("GET /api/machines", s.listMachines)
@@ -320,6 +332,11 @@ var publicPaths = map[string]bool{
 	"/api/login":              true,
 	"/api/health":             true,
 	"/api/webhook/socialdata": true,
+	// 首次设置账号与其状态查询（setupAuth 自身仅在未配置口令时生效，见 setupAuth）
+	"/api/auth/status": true,
+	"/api/setup/auth":  true,
+	// 桌面窗口入口：?t= 校验通过后种会话 cookie（desktopStart 自身校验 token）
+	"/desktop-start": true,
 }
 
 func isPublicPath(path string) bool {
@@ -338,8 +355,29 @@ func (s *Server) auth(next *http.ServeMux) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		// 桌面模式（PC 端）：不做账号密码,本机窗口直接放行;服务端(web)部署才启用登录
+		// 桌面模式（PC 端）：不做账号密码，但不再无条件放行（H4：只靠「绑定本机」
+		// 做边界，DNS 重绑定 / 跨站请求可读全部密钥）——
+		//  1) Host 必须是 Origin 的 loopback 主机 + 真实端口（evil.com 重绑定到
+		//     127.0.0.1 时 Host 是 evil.com:port，直接 403）；
+		//  2) 带 Origin 头的请求（跨站 fetch/POST 必带）必须与 Origin 同源；
+		//  3) /api/* 要求桌面凭据：/desktop-start?t= 换的会话 cookie（<img> 等
+		//     无头请求也能带），或 X-Desktop-Token 头。
 		if s.Desktop {
+			if !s.desktopHostAllowed(r) {
+				w.WriteHeader(http.StatusForbidden)
+				s.json(w, map[string]string{"error": "desktop: invalid host"})
+				return
+			}
+			if o := r.Header.Get("Origin"); o != "" && s.Origin != "" && !sameOrigin(o, s.Origin) {
+				w.WriteHeader(http.StatusForbidden)
+				s.json(w, map[string]string{"error": "desktop: cross-origin request"})
+				return
+			}
+			if strings.HasPrefix(r.URL.Path, "/api/") && !s.desktopAuthorized(r) {
+				w.WriteHeader(http.StatusUnauthorized)
+				s.json(w, map[string]string{"error": "desktop: session required"})
+				return
+			}
 			s.logStatus(next, w, r)
 			return
 		}
@@ -355,6 +393,73 @@ func (s *Server) auth(next *http.ServeMux) http.Handler {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(loginHTML)
 	})
+}
+
+// desktopHostAllowed 桌面模式 Host 白名单：Origin 注入时只放行
+// localhost/127.0.0.1/[::1] + Origin 的真实端口（H4 杀 DNS 重绑定）；
+// 未注入时退化为只认 loopback 主机名（任意端口）。
+func (s *Server) desktopHostAllowed(r *http.Request) bool {
+	host := r.Host
+	if host == "" {
+		return false
+	}
+	if s.Origin != "" {
+		if u, err := url.Parse(s.Origin); err == nil {
+			if p := u.Port(); p != "" {
+				return host == "localhost:"+p || host == "127.0.0.1:"+p || host == "[::1]:"+p
+			}
+		}
+	}
+	h := host
+	if i := strings.LastIndex(h, ":"); i >= 0 && !strings.Contains(h[i:], "]") {
+		h = h[:i] // 去端口（IPv6 裸地址不含冒号段此分支不触发）
+	}
+	return h == "localhost" || h == "127.0.0.1" || h == "::1"
+}
+
+// sameOrigin scheme://host:port 级比较（OAuth 回调 origin 与桌面 Origin 同形）。
+func sameOrigin(a, b string) bool {
+	ua, erra := url.Parse(a)
+	ub, errb := url.Parse(b)
+	if erra != nil || errb != nil {
+		return a == b
+	}
+	return ua.Scheme == ub.Scheme && ua.Host == ub.Host
+}
+
+// desktopAuthorized /api/* 的桌面凭据校验：X-Desktop-Token 头，或
+// /desktop-start 种的会话 cookie（值 = token，或 DB 里的有效会话）。
+func (s *Server) desktopAuthorized(r *http.Request) bool {
+	if s.DesktopToken == "" {
+		return true // 内嵌调用方未注入 token：维持旧行为
+	}
+	if credEq(r.Header.Get("X-Desktop-Token"), s.DesktopToken) {
+		return true
+	}
+	if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
+		if credEq(c.Value, s.DesktopToken) {
+			return true
+		}
+		return s.Store.ValidSession(c.Value)
+	}
+	return false
+}
+
+// desktopStart GET /desktop-start?t=<token>：桌面窗口入口（ServeDesktop 注入）。
+// token 对上即种桌面会话 cookie（值 = token，7 天），302 到 / 去掉 URL 里的
+// token；之后同源请求（含 <img> 等无头请求）都带凭据。仅桌面模式可达。
+func (s *Server) desktopStart(w http.ResponseWriter, r *http.Request) {
+	if !s.Desktop || s.DesktopToken == "" || !credEq(r.URL.Query().Get("t"), s.DesktopToken) {
+		w.WriteHeader(http.StatusForbidden)
+		s.json(w, map[string]string{"error": "desktop: bad token"})
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name: sessionCookie, Value: s.DesktopToken, Path: "/",
+		HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		Expires: time.Now().Add(7 * 24 * time.Hour),
+	})
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 // logStatus 记录非 2xx 响应（排查 404 重复调用等问题）。
@@ -404,33 +509,105 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		s.json(w, map[string]string{"error": i18n.T(lang(r), "err.too_many_attempts")})
 		return
 	}
-	u, p := s.authUser(), s.authPass()
+	u := s.authUser()
+	p, pFromDB := s.authPass()
 	// 两个比较都无条件执行，避免「用户名错 / 密码错」的时序差异
 	userOK := credEq(in.User, u)
-	passOK := credEq(in.Pass, p)
+	passOK, needsUpgrade := verifyStoredPass(p, pFromDB, in.Pass)
 	if u == "" || p == "" || !userOK || !passOK {
 		guard.fail(ip)
 		w.WriteHeader(http.StatusUnauthorized)
 		s.json(w, map[string]string{"error": i18n.T(lang(r), "err.bad_credentials")})
 		return
 	}
+	// 存量明文口令登录成功 → 立即升级为 bcrypt 哈希（M3：明文存储淘汰）
+	if needsUpgrade {
+		if h, herr := hashPassword(in.Pass); herr == nil {
+			_ = s.Store.SetSetting("auth_pass", h)
+		}
+	}
 	guard.clear(ip)
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
+	if err := s.startSession(w, r, in.User); err != nil {
+		s.err(w, 500, err)
+	}
+	s.json(w, map[string]bool{"ok": true})
+}
+
+// authStatus GET /api/auth/status（免登录）：{configured:false} 时登录页显示
+// 「首次设置」表单而不是登录表单（M3 去掉默认密码后的入口）。
+func (s *Server) authStatus(w http.ResponseWriter, r *http.Request) {
+	p, _ := s.authPass()
+	s.json(w, map[string]bool{"configured": p != ""})
+}
+
+// setupAuth POST /api/setup/auth（免登录）：首次设置账号口令。仅在口令未配置时
+// 可调用；走 loginGuard 限速。成功后直接建立会话，前端跳转控制台。
+func (s *Server) setupAuth(w http.ResponseWriter, r *http.Request) {
+	if p, _ := s.authPass(); p != "" {
+		s.err(w, http.StatusForbidden, errStr("账号已初始化，请登录后在设置页修改密码"))
+		return
+	}
+	var in struct {
+		User string `json:"user"`
+		Pass string `json:"pass"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		s.err(w, 400, err)
+		return
+	}
+	ip := clientIP(r)
+	guard := s.loginGuard()
+	if guard.limited(ip) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		s.json(w, map[string]string{"error": i18n.T(lang(r), "err.too_many_attempts")})
+		return
+	}
+	in.User = strings.TrimSpace(in.User)
+	// 与 login 同一限速口径：非法输入也计数，防止用初始化接口爆破/刷库
+	if in.User == "" || len(in.Pass) < 6 || len(in.Pass) > 72 {
+		guard.fail(ip)
+		s.err(w, 400, errStr("用户名不能为空；密码长度需在 6-72 个字符之间"))
+		return
+	}
+	h, herr := hashPassword(in.Pass)
+	if herr != nil {
+		s.err(w, 500, herr)
+		return
+	}
+	if err := s.Store.SetSetting("auth_user", in.User); err != nil {
 		s.err(w, 500, err)
 		return
 	}
-	token := hex.EncodeToString(buf)
-	if err := s.Store.CreateSession(token, in.User); err != nil {
+	if err := s.Store.SetSetting("auth_pass", h); err != nil {
 		s.err(w, 500, err)
 		return
+	}
+	guard.clear(ip)
+	if err := s.startSession(w, r, in.User); err != nil {
+		s.err(w, 500, err)
+		return
+	}
+	s.json(w, map[string]bool{"ok": true})
+}
+
+// startSession 建立会话并种 cookie。HTTPS（直连 TLS 或反代 X-Forwarded-Proto）
+// 部署时加 Secure（L6：会话 cookie 未设 Secure）。
+func (s *Server) startSession(w http.ResponseWriter, r *http.Request, user string) error {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return err
+	}
+	token := hex.EncodeToString(buf)
+	if err := s.Store.CreateSession(token, user); err != nil {
+		return err
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: sessionCookie, Value: token, Path: "/",
 		HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		Secure:  r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https",
 		Expires: time.Now().Add(7 * 24 * time.Hour),
 	})
-	s.json(w, map[string]bool{"ok": true})
+	return nil
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
@@ -466,8 +643,17 @@ func (s *Server) json(w http.ResponseWriter, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+// err 统一错误响应。曾漏写状态码（code 参数被忽略），所有错误都是 HTTP 200，
+// 前端只能靠 body 里的 error 字段判错、日志里的 ≥400 统计全部失效 —— 现在
+// 显式写出状态码（clamp 到 400-599，调用点传 0/负数时兜底 500）。
 func (s *Server) err(w http.ResponseWriter, code int, e error) {
-	s.json(w, map[string]string{"error": e.Error()})
+	if code < 400 || code > 599 {
+		code = http.StatusInternalServerError
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": e.Error()})
 }
 
 // ---- 机器 ----

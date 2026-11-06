@@ -355,6 +355,7 @@ func (s *Server) roleClone(w http.ResponseWriter, r *http.Request) {
 		s.err(w, 404, errStr(s.tr(r, "err.role_not_found")))
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<20) // 语音样本上限（M6：大上传撑爆内存）
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		s.err(w, 400, err)
@@ -370,10 +371,17 @@ func (s *Server) roleClone(w http.ResponseWriter, r *http.Request) {
 		s.err(w, 400, err)
 		return
 	}
-	// 本地留档语音样本（可存多个，选一激活；data/roles/{id}/，最多 5 个）
-	ext := "mp3"
-	if i := strings.LastIndex(header.Filename, "."); i >= 0 && i < len(header.Filename)-1 {
-		ext = strings.ToLower(header.Filename[i+1:])
+	// 本地留档语音样本（可存多个，选一激活；data/roles/{id}/，最多 5 个）。
+	// ext 走 filepath.Ext + 白名单：历史实现取文件名最后一个 "." 之后的整段，
+	// multipart 文件名可带 "/"，能拼出目录穿越写入（H3）。
+	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(header.Filename), "."))
+	switch ext {
+	case "":
+		ext = "mp3" // 无扩展名沿用历史默认
+	case "mp3", "wav", "m4a", "ogg", "flac":
+	default:
+		s.err(w, 400, fmt.Errorf("unsupported audio type: %s (mp3/wav/m4a/ogg/flac)", ext))
+		return
 	}
 	rel, serr := s.Roles.SaveAsset(rl.ID, "voice-"+strconv.FormatInt(time.Now().Unix(), 10), ext, buf)
 	if serr != nil {

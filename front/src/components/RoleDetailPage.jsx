@@ -51,8 +51,8 @@ export default function RoleDetailPage({ id }) {
       try { setUpstreams(await api('/api/upstreams')); } catch { setUpstreams([]); }
       try {
         const s = await api('/api/settings');
-        setHasKey(!!(s && s.socialdata_api_key));
-        setLlmReady(!!(s && s.llm_base_url && s.llm_api_key && s.llm_model));
+        setHasKey(!!(s && s.socialdata_api_key_set)); // M5：密钥改 *_set
+        setLlmReady(!!(s && s.llm_base_url && s.llm_api_key_set && s.llm_model)); // M5
       } catch { /* 设置拿不到就不拦 */ }
     } catch (e) { toastErr(e.message); }
   };

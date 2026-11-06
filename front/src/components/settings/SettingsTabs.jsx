@@ -55,19 +55,31 @@ export function AccountTab({ st, onSaved }) {
 export function FeedTab({ st, onSaved }) {
   const toastOk = useToastOk();
   const toastErr = useToastErr();
-  const [key, setKey] = useState(st.socialdata_api_key || '');
+  // M5：key 不再回传明文，只有 *_set 标志 —— 输入框留空 = 保留已存值；
+  // 填新值覆盖；清除走显式按钮。
+  const keySet = !!st.socialdata_api_key_set;
+  const [key, setKey] = useState('');
   const [base, setBase] = useState(st.socialdata_base_url || '');
 
   useEffect(() => {
-    setKey(st.socialdata_api_key || '');
+    setKey('');
     setBase(st.socialdata_base_url || '');
-  }, [st.socialdata_api_key, st.socialdata_base_url]);
+  }, [st.socialdata_api_key_set, st.socialdata_base_url]);
 
   const saveSocialdata = async () => {
     try {
-      await api('/api/settings', {
-        method: 'PUT', body: JSON.stringify({ socialdata_api_key: key, socialdata_base_url: base }),
-      });
+      const body = { socialdata_base_url: base };
+      if (key.trim()) body.socialdata_api_key = key.trim();
+      await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
+      toastOk(t('saved'));
+      setKey('');
+      onSaved && onSaved();
+    } catch (e) { toastErr(e.message); }
+  };
+
+  const clearKey = async () => {
+    try {
+      await api('/api/settings', { method: 'PUT', body: JSON.stringify({ socialdata_api_key_clear: '1' }) });
       toastOk(t('saved'));
       onSaved && onSaved();
     } catch (e) { toastErr(e.message); }
@@ -77,15 +89,26 @@ export function FeedTab({ st, onSaved }) {
     <>
       <BrowserLoginBar domain="feed" />
       <div className="card" style={{ maxWidth: 760 }}>
-        <div className="bound-source"><b>socialdata.tools</b><span className="badge mut">Feed</span></div>
-        <label className="field" id="socialdata-key">{t('socialdataKey')}<input value={key} onChange={(e) => setKey(e.target.value)} /></label>
+        <div className="bound-source">
+          <b>socialdata.tools</b><span className="badge mut">Feed</span>
+          {keySet
+            ? <span className="badge ok">✓</span>
+            : <span className="badge warn">{t('passUnset')}</span>}
+        </div>
+        <label className="field" id="socialdata-key">{t('socialdataKey')}
+          <input type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)}
+            placeholder={keySet ? '••••••••（' + t('passSet') + '）' : ''} />
+        </label>
         <p className="hint" style={{ margin: '0 0 12px' }}>
           {t('apiKeyTip')} <a href="https://socialdata.tools/app/dashboard" target="_blank" rel="noopener" style={{ color: 'var(--acc)' }}>socialdata.tools/app/dashboard ↗</a>
         </p>
         <label className="field" id="socialdata-base">{t('socialdataBase')}
           <input value={base} onChange={(e) => setBase(e.target.value)} placeholder="https://api.socialdata.tools" />
         </label>
-        <div className="card-actions"><button onClick={saveSocialdata}>{t('save')}</button></div>
+        <div className="card-actions" style={{ justifyContent: 'flex-start', gap: 8 }}>
+          <button onClick={saveSocialdata}>{t('save')}</button>
+          {keySet && <button className="mini danger" onClick={clearKey}>{t('clear')}</button>}
+        </div>
       </div>
       <div id="feed-channels"><ChannelsSection domain="feed" /></div>
     </>
@@ -110,9 +133,10 @@ export function AdvancedTab({ st, onSaved }) {
   const [mon, setMon] = useState(null);
   const [llm, setLlm] = useState({
     base_url: st.llm_base_url || '',
-    api_key: st.llm_api_key || '',
+    api_key: '', // M5：明文不回传，留空 = 保留已存值
     model: st.llm_model || '',
   });
+  const llmKeySet = !!st.llm_api_key_set;
   const [httpProxy, setHttpProxy] = useState(st.http_proxy || '');
   const [noHTTP, setNoHTTP] = useState(st.no_http || '');
   const [mode, setMode] = useState('c');
@@ -130,10 +154,11 @@ export function AdvancedTab({ st, onSaved }) {
 
   const saveLlm = async () => {
     try {
-      await api('/api/settings', { method: 'PUT', body: JSON.stringify({
-        llm_base_url: llm.base_url, llm_api_key: llm.api_key, llm_model: llm.model,
-      }) });
+      const body = { llm_base_url: llm.base_url, llm_model: llm.model };
+      if (llm.api_key.trim()) body.llm_api_key = llm.api_key.trim();
+      await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
       toastOk(t('saved'));
+      setLlm((v) => ({ ...v, api_key: '' }));
       onSaved && onSaved();
     } catch (e) { toastErr(e.message); }
   };
@@ -176,8 +201,9 @@ export function AdvancedTab({ st, onSaved }) {
         <label className="field" style={{ marginTop: 8 }}>{t('llmBaseUrl')}
           <input value={llm.base_url} onChange={(e) => setLlm({ ...llm, base_url: e.target.value })} placeholder="https://api.openai.com/v1" />
         </label>
-        <label className="field">{t('llmApiKey')}
-          <input type="password" autoComplete="off" value={llm.api_key} onChange={(e) => setLlm({ ...llm, api_key: e.target.value })} placeholder="sk-…" />
+        <label className="field">{t('llmApiKey')} {llmKeySet && <span className="badge ok">✓</span>}
+          <input type="password" autoComplete="off" value={llm.api_key} onChange={(e) => setLlm({ ...llm, api_key: e.target.value })}
+            placeholder={llmKeySet ? '••••••••（' + t('passSet') + '）' : 'sk-…'} />
         </label>
         <label className="field">{t('llmModel')}
           <input value={llm.model} onChange={(e) => setLlm({ ...llm, model: e.target.value })} placeholder="gpt-4o-mini" />

@@ -59,7 +59,7 @@ func TestBookStateScopedToRole(t *testing.T) {
 	}
 }
 
-// apiErr 现有接口的错误统一走 s.err（HTTP 200 + {"error": ...}），这里按这个约定断言。
+// apiErr 接口错误统一走 s.err（4xx/5xx + {"error": ...}），这里只解析错误文案。
 func apiErr(t *testing.T, rec *httptest.ResponseRecorder) string {
 	t.Helper()
 	var body struct {

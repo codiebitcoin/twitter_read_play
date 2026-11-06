@@ -1,20 +1,35 @@
 package api
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
-// postWebhook 向 webhook 端点推送一段载荷。
+// postWebhook 向 webhook 端点推送一段载荷（自动配好 secret 并计算有效签名 ——
+// M1 起未配 secret 一律 401，推送级测试只关心载荷处理）。
 func postWebhook(t *testing.T, path, body string) (int, map[string]any) {
 	t.Helper()
 	s := newQueueTestServer(t)
+	if err := s.Store.SetSetting("socialdata_webhook_secret", "test-secret"); err != nil {
+		t.Fatal(err)
+	}
 	h := s.Routes()
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	mac := hmac.New(sha256.New, []byte("test-secret"))
+	mac.Write([]byte("evt." + ts + "." + body))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req.Header.Set("X-Event-Id", "evt")
+	req.Header.Set("X-Timestamp", ts)
+	req.Header.Set("X-Signature", "v1="+hex.EncodeToString(mac.Sum(nil)))
 	h.ServeHTTP(rec, req)
 	var out map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)

@@ -57,7 +57,7 @@ export default function HomePage() {
   const { st, machines, roles, logs } = data;
   const boundRoles = roles.filter((r) => (r.bindings || []).some((b) => b.enabled === true && b.machine_id && b.slot > 0));
   const recent = logs.slice(0, 5);
-  const upstreamReady = (data.upstreams || []).some((u) => u.enabled && (u.api_key || u.cookie || u.api === 'rss'));
+  const upstreamReady = (data.upstreams || []).some((u) => u.enabled && (u.api_key_set || u.cookie_set || u.api === 'rss')); // M5：密钥改 *_set
   const unpaired = machines.filter((m) => !m.creds);
 
   return (

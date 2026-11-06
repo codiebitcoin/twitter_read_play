@@ -53,8 +53,18 @@ func (s *Server) listChannels(w http.ResponseWriter, r *http.Request) {
 		v.Usage = s.channelUsage(ch.ID)
 		views = append(views, v)
 	}
+	// M5：渠道凭据（key/cookie/token 等）不回传，只给 *_set 标志；
+	// 保存时空值保留旧值（upsertChannel 里合并），前端编辑不会清掉密钥。
+	out := make([]map[string]any, 0, len(views))
+	for _, v := range views {
+		out = append(out, toRedactedMap(v, func(m map[string]any) {
+			if c, ok := m["credentials"].(map[string]any); ok {
+				redactKeys(c, "api_key", "cookie", "auth_token", "ct0", "oauth", "client_secret")
+			}
+		}))
+	}
 	s.json(w, map[string]any{
-		"channels": views,
+		"channels": out,
 		"adapters": s.adapterInfos(domain),
 		"mode":     s.serverMode(),
 	})
@@ -104,6 +114,12 @@ func (s *Server) upsertChannel(w http.ResponseWriter, r *http.Request) {
 	if id := r.PathValue("id"); id != "" {
 		ch.ID = id
 	}
+	// M5：GET 不再回传密钥明文，前端编辑回传的密钥字段为空 —— 空值一律保留旧值，
+	// 否则编辑一次渠道就把 api_key/cookie 清掉。（要换密钥填新值覆盖；要清空
+	// 删除渠道重建。）对新建渠道（Get 失败）无影响。
+	if cur, err := s.Channels.Get(ch.ID); err == nil {
+		mergeChannelCredentials(&ch.Credentials, &cur.Credentials)
+	}
 	a, ok := s.Adapters.Get(ch.AdapterID)
 	if !ok {
 		s.err(w, http.StatusBadRequest, fmt.Errorf(s.tr(r, "err.unknown_adapter"), ch.AdapterID))
@@ -143,6 +159,26 @@ func (s *Server) upsertChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.json(w, saved)
+}
+
+// mergeChannelCredentials 空值保留旧值的密钥合并。base_url / proxy /
+// session_provider 是非敏感配置，不参与（前端编辑时能看到并修改它们）。
+func mergeChannelCredentials(new, old *source.Credentials) {
+	if new == nil || old == nil {
+		return
+	}
+	for field, set := range map[*string]*string{
+		&new.APIKey:       &old.APIKey,
+		&new.Cookie:       &old.Cookie,
+		&new.AuthToken:    &old.AuthToken,
+		&new.CT0:          &old.CT0,
+		&new.OAuth:        &old.OAuth,
+		&new.ClientSecret: &old.ClientSecret,
+	} {
+		if strings.TrimSpace(*field) == "" {
+			*field = *set
+		}
+	}
 }
 
 // disableChannel POST /api/channels/{id}/disable  body: {enabled:bool}

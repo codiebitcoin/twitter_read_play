@@ -143,7 +143,8 @@ func (s *Server) livechatOAuthCallback(w http.ResponseWriter, r *http.Request) {
 		p = r.PathValue("provider")
 	}
 	if err := r.URL.Query().Get("error"); err != "" {
-		oauthPopupHTML(w, p, false, "授权被拒绝: "+err)
+		// 外部可控参数只回显截断后的片段（内容仍会被 scriptJSON/htmlEscape 转义）
+		oauthPopupHTML(w, p, false, "授权被拒绝: "+truncateRunes(err, 200))
 		return
 	}
 	if e := s.Live.ConsumeOAuthState(r.URL.Query().Get("state"), p); e != nil {
@@ -209,12 +210,41 @@ func oauthPopupHTML(w http.ResponseWriter, provider string, ok bool, msg string)
 <script>
 try {
   if (window.opener) {
-    window.opener.postMessage({type:'livechat-oauth',provider:%q,ok:%v,message:%q}, '*');
+    window.opener.postMessage(%s, '*');
   }
 } catch (e) {}
 setTimeout(function(){ window.close(); }, 400);
 </script>
-</body>`, status, htmlEscape(msg), provider, ok, msg)
+</body>`, status, htmlEscape(msg), scriptJSON(map[string]any{
+		"type": "livechat-oauth", "provider": provider, "ok": ok, "message": msg,
+	}))
+}
+
+// scriptJSON 把值序列化成可安全嵌入内联 <script> 的 JSON 字面量。
+// json.Marshal 覆盖引号/反斜杠/控制字符，但不转义 `/`：`</script>` 能原样穿过，
+// 可闭合标签注入脚本（H1）。这里再补 `<` `>` `&` 与 U+2028/U+2029（JS 换行）转义。
+func scriptJSON(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "null"
+	}
+	r := strings.NewReplacer(
+		"<", `\u003c`, ">", `\u003e`, "&", `\u0026`,
+		"\u2028", `\u2028`, "\u2029", `\u2029`,
+	)
+	return r.Replace(string(b))
+}
+
+// truncateRunes 截断到 n 个 rune（外部回显参数的长度限制）。
+func truncateRunes(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	return string(runes[:n]) + "…"
 }
 
 func htmlEscape(s string) string {

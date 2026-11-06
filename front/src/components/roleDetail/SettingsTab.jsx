@@ -71,7 +71,7 @@ export default function SettingsTab({ role, machines, onSaved, llmReady: llmRead
   useEffect(() => {
     if (llmReadyProp !== undefined) return;
     api('/api/settings')
-      .then((s) => setLlmReadyLocal(!!(s && s.llm_base_url && s.llm_api_key && s.llm_model)))
+      .then((s) => setLlmReadyLocal(!!(s && s.llm_base_url && s.llm_api_key_set && s.llm_model))) // M5：密钥改 *_set
       .catch(() => {});
   }, [llmReadyProp]);
 

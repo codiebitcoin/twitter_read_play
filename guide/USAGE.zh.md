@@ -58,7 +58,7 @@ docker run -d -p 8080:8080 -v trp-data:/app/data \
 # 打开 http://localhost:8080 登录
 ```
 
-登录账号密码用环境变量设置；页面保存的优先：**设置 → 登录账号 > env（`AUTH_USER` / `AUTH_PASS`）> 默认 `admin / 11111`**。
+登录账号密码用环境变量预置；页面保存的优先：**设置 → 登录账号（bcrypt 哈希存储）> env（`AUTH_USER` / `AUTH_PASS`）**。两者都未配置时，首次打开登录页会要求设置账号，没有内置默认密码。
 
 ![登录页](img/01-login.png)
 
@@ -223,7 +223,7 @@ docker run -d -p 8080:8080 -v trp-data:/app/data \
 
 ![设置：登录账号](img/08-settings-account.png)
 
-可修改控制台登录用户名/密码。此处保存的配置始终优先于部署 env；保存后立即生效；为空时依次回落到部署 env（`AUTH_USER/AUTH_PASS`）、默认值 `admin / 11111`。
+可修改控制台登录用户名/密码。此处保存的配置始终优先于部署 env，密码以 bcrypt 哈希存储；保存后立即生效；为空时回落到部署 env（`AUTH_USER/AUTH_PASS`）。
 
 ### 6.4 上游数据源（多 API 源）
 

@@ -149,6 +149,7 @@ func (m *Manager) Configs() []SourceConfig {
 // 改成禁用 → 停掉。返回保存后的配置。
 func (m *Manager) SaveConfig(c SourceConfig) (SourceConfig, error) {
 	c.Channel = strings.TrimSpace(c.Channel)
+	c.stripDeprecatedExecFields() // H2：解释器/透传参数不接受外部配置
 	m.applyOAuthDefaults(&c)
 	if err := c.Validate(); err != nil {
 		return c, err
@@ -284,6 +285,7 @@ func (m *Manager) start(id string) error {
 		return fmt.Errorf("livechat 配置不存在: %s", id)
 	}
 	m.applyOAuthDefaults(&cfg)
+	cfg.stripDeprecatedExecFields() // 存量配置可能还带着废弃的 python_path/extra_args
 	// 游客 getDanmuInfo 会 -352（房间连上但弹幕为空），启动时用浏览器登录态补 Cookie。
 	cookieCtx, cancelCookie := context.WithTimeout(context.Background(), 25*time.Second)
 	m.applyRuntimeDefaults(cookieCtx, &cfg)

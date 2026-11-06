@@ -32,7 +32,17 @@ func (s *Server) discoverMachines(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listMachines(w http.ResponseWriter, r *http.Request) {
-	s.json(w, s.Machines.List())
+	list := s.Machines.List()
+	out := make([]map[string]any, 0, len(list))
+	for _, mc := range list {
+		// M5：设备 local_secret / local_session_id 不回传（配对凭据可全权控制设备）
+		out = append(out, toRedactedMap(mc, func(m map[string]any) {
+			if creds, ok := m["creds"].(map[string]any); ok {
+				redactKeys(creds, "local_secret", "local_session_id")
+			}
+		}))
+	}
+	s.json(w, out)
 }
 
 func (s *Server) addMachine(w http.ResponseWriter, r *http.Request) {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"twitter_read_play/internal/model"
+	"twitter_read_play/internal/role"
 	"twitter_read_play/internal/store"
 	"twitter_read_play/internal/watch"
 )
@@ -61,6 +62,13 @@ func (s *Server) upsertRole(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id != "" {
 		role.ID = id
+	}
+	// H3：素材路径字段（icon/local_vrm/local_voice(s)）只由上传接口服务端写入。
+	// 客户端指定的非空路径必须属于本角色名下的合法资源文件，否则 400 ——
+	// 否则 PUT {"icon":"../app.db"} 后 GET /api/roles/{id}/icon 即可读走任意文件。
+	if err := validateRoleAssets(&role); err != nil {
+		s.err(w, 400, err)
+		return
 	}
 	// 默认不允许「同一台机器的同一个 slot」被多个角色占用：设备同一时刻只有一个激活槽位
 	// + 一套角色/音色，两个角色抢同一槽位会互相覆盖（实测：dev slot1 同时绑 Trump/Paimon，
@@ -162,6 +170,38 @@ func (s *Server) upsertRole(w http.ResponseWriter, r *http.Request) {
 	s.syncRoleLiveSource(&role, liveValidation)
 	role.Validation = validation
 	s.json(w, &role)
+}
+
+// validateRoleAssets H3：校验角色 JSON 里的素材路径字段，非法即报错。
+// 合法 = 空（清空/未设置）或 roles/{本角色ID}/单段文件名（AssetOwned 同时校验
+// 格式与归属，穿越串 ../app.db、别的角色的资源、绝对路径都过不去）。
+func validateRoleAssets(r *model.Role) error {
+	check := func(rel, field string) error {
+		if rel == "" || role.AssetOwned(r.ID, rel) {
+			return nil
+		}
+		return fmt.Errorf("%s 指向非法素材路径 %q：素材文件由上传接口写入，不能手工指定", field, rel)
+	}
+	if err := check(r.Icon, "icon"); err != nil {
+		return err
+	}
+	if err := check(r.LocalVrm, "local_vrm"); err != nil {
+		return err
+	}
+	if err := check(r.LocalVoice, "local_voice"); err != nil {
+		return err
+	}
+	for i, v := range r.LocalVrms {
+		if err := check(v.File, fmt.Sprintf("local_vrms[%d].file", i)); err != nil {
+			return err
+		}
+	}
+	for i, v := range r.LocalVoices {
+		if err := check(v.File, fmt.Sprintf("local_voices[%d].file", i)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Server) delRole(w http.ResponseWriter, r *http.Request) {

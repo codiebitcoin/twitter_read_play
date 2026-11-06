@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -40,6 +41,16 @@ for m in chat:
         sys.exit(0)
 `
 
+// chatdlPython 解释器路径：只认 TRP_CHATDL_PYTHON 环境变量（默认 python3）。
+// 历史上这来自页面保存的 python_path，等于把「执行哪个程序」交给了前端 ——
+// H2 修复后页面配置不再参与（见 SourceConfig.PythonPath 注释）。
+func chatdlPython() string {
+	if v := strings.TrimSpace(os.Getenv("TRP_CHATDL_PYTHON")); v != "" {
+		return v
+	}
+	return "python3"
+}
+
 // Stream 阻塞拉取直到 ctx 取消。子进程退出（直播结束/库报错）即返回 error，
 // 由 Manager 退避重启 —— 回放场景一次跑完返回 nil 之外的 error 也没关系，
 // 反正重拉一次就是从头再读一遍（对回放反而幂等）。
@@ -47,14 +58,8 @@ func (c *ChatDownloader) Stream(ctx context.Context, on func(Message)) error {
 	if base := strings.TrimSpace(c.Cfg.BaseURL); base != "" {
 		return c.streamService(ctx, on, base)
 	}
-	py := strings.TrimSpace(c.Cfg.PythonPath)
-	if py == "" {
-		py = "python3"
-	}
+	py := chatdlPython()
 	args := []string{"-c", chatDLScript, strings.TrimSpace(c.Cfg.Channel)}
-	for _, a := range strings.Fields(c.Cfg.ExtraArgs) {
-		args = append(args, a)
-	}
 	cmd := exec.CommandContext(ctx, py, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

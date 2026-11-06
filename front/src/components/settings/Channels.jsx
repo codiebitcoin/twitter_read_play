@@ -20,6 +20,9 @@ function adapterSessionProvider(adapterID) {
 
 function ChannelDialog({ adapters, domain, initial, onClose, onSaved }) {
   const toastErr = useToastErr();
+  // M5：密钥字段不再回传明文，只有 *_set —— 输入框留空 = 保留已存值（服务端合并），
+  // 填新值覆盖。badge 提示该渠道哪些密钥已设置。
+  const credSet = (k) => !!initial?.credentials?.[k + '_set'];
   const [f, setF] = useState(() => ({
     id: initial?.id || '',
     name: initial?.name || '',
@@ -28,12 +31,12 @@ function ChannelDialog({ adapters, domain, initial, onClose, onSaved }) {
     enabled: initial?.enabled !== false,
     refresh_seconds: initial?.refresh_seconds || 600,
     credentials: {
-      api_key: initial?.credentials?.api_key || '',
+      api_key: '',
       base_url: initial?.credentials?.base_url || '',
-      cookie: initial?.credentials?.cookie || '',
-      oauth: initial?.credentials?.oauth || '',
+      cookie: '',
+      oauth: '',
       client_id: initial?.credentials?.client_id || '',
-      client_secret: initial?.credentials?.client_secret || '',
+      client_secret: '',
       proxy: initial?.credentials?.proxy || '',
       session_provider: initial?.credentials?.session_provider || '',
     },
@@ -43,6 +46,12 @@ function ChannelDialog({ adapters, domain, initial, onClose, onSaved }) {
   const isRemote = f.adapter_id === 'chrome_driverless';
   const sessionProvider = f.credentials.session_provider || adapterSessionProvider(f.adapter_id);
   const setC = (k, v) => setF((x) => ({ ...x, credentials: { ...x.credentials, [k]: v } }));
+  const secretField = (k, label) => (
+    <label className="field">{label} {credSet(k) && <span className="badge ok">✓</span>}
+      <input type="password" autoComplete="off" value={f.credentials[k]} onChange={(e) => setC(k, e.target.value)}
+        placeholder={credSet(k) ? '••••••••（' + t('passSet') + '）' : ''} />
+    </label>
+  );
 
   const save = async () => {
     try {
@@ -75,12 +84,12 @@ function ChannelDialog({ adapters, domain, initial, onClose, onSaved }) {
           {adapters.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
       </label>
-      {keys.has('api_key') ? <label className="field">API Key<input value={f.credentials.api_key} onChange={(e) => setC('api_key', e.target.value)} /></label> : null}
+      {keys.has('api_key') ? secretField('api_key', 'API Key') : null}
       {keys.has('base_url') ? <label className="field">Base URL<input value={f.credentials.base_url} onChange={(e) => setC('base_url', e.target.value)} placeholder={isRemote ? 'http://localhost:9222' : 'https://…'} /></label> : null}
-      {keys.has('cookie') ? <label className="field">Cookie<input value={f.credentials.cookie} onChange={(e) => setC('cookie', e.target.value)} /></label> : null}
-      {keys.has('oauth') ? <label className="field">OAuth Token<input value={f.credentials.oauth} onChange={(e) => setC('oauth', e.target.value)} /></label> : null}
+      {keys.has('cookie') ? secretField('cookie', 'Cookie') : null}
+      {keys.has('oauth') ? secretField('oauth', 'OAuth Token') : null}
       {keys.has('client_id') ? <label className="field">Client ID<input value={f.credentials.client_id} onChange={(e) => setC('client_id', e.target.value)} /></label> : null}
-      {keys.has('client_id') ? <label className="field">Client Secret<input type="password" value={f.credentials.client_secret} onChange={(e) => setC('client_secret', e.target.value)} /></label> : null}
+      {keys.has('client_id') ? secretField('client_secret', 'Client Secret') : null}
       {keys.has('desktop_session') ? (
         <label className="field">Session Provider
           <select value={sessionProvider} onChange={(e) => setC('session_provider', e.target.value)}>
@@ -95,6 +104,7 @@ function ChannelDialog({ adapters, domain, initial, onClose, onSaved }) {
         <input type="checkbox" checked={!!f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} />{t('enabled')}
       </label>
       {info?.hint ? <div className="hint" style={{ margin: '8px 0 4px' }}>{info.hint}</div> : null}
+      {f.id ? <div className="hint" style={{ margin: '4px 0 4px' }}>{t('secretKeepHint')}</div> : null}
       <div className="row">
         <button className="secondary" onClick={onClose}>{t('cancel')}</button>
         <button onClick={save}>{t('save')}</button>

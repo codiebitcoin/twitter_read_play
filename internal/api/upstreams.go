@@ -14,7 +14,15 @@ import (
 )
 
 func (s *Server) listUpstreams(w http.ResponseWriter, r *http.Request) {
-	s.json(w, s.Upstreams.List())
+	list := s.Upstreams.List()
+	out := make([]map[string]any, 0, len(list))
+	for _, u := range list {
+		// M5：api_key / cookie 不回传，只给 *_set
+		out = append(out, toRedactedMap(u, func(m map[string]any) {
+			redactKeys(m, "api_key", "cookie")
+		}))
+	}
+	s.json(w, out)
 }
 
 func (s *Server) listUpstreamAPIs(w http.ResponseWriter, r *http.Request) {

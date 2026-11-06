@@ -26,18 +26,19 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 		passSet = true // env 提供了密码，同样视为已配置
 	}
 	s.json(w, map[string]any{
-		"socialdata_api_key":  key,
-		"socialdata_base_url": base,
-		"webhook_base":        s.effectiveWebhookBase(),
-		"webhook_secret_set":  s.mustSetting("socialdata_webhook_secret") != "",
-		"auth_user":           user,
-		"auth_pass_set":       passSet,
-		"auth_user_from_db":   userFromDB,
-		"auth_pass_from_db":   passFromDB,
+		// M5：密钥不回传明文，只给 *_set（与 webhook_secret_set/auth_pass_set 同形）
+		"socialdata_api_key_set": key != "",
+		"socialdata_base_url":    base,
+		"webhook_base":           s.effectiveWebhookBase(),
+		"webhook_secret_set":     s.mustSetting("socialdata_webhook_secret") != "",
+		"auth_user":              user,
+		"auth_pass_set":          passSet,
+		"auth_user_from_db":      userFromDB,
+		"auth_pass_from_db":      passFromDB,
 		// parody 模式用的 LLM（OpenAI 兼容）
-		"llm_base_url": s.mustSetting("llm_base_url"),
-		"llm_api_key":  s.mustSetting("llm_api_key"),
-		"llm_model":    s.mustSetting("llm_model"),
+		"llm_base_url":    s.mustSetting("llm_base_url"),
+		"llm_api_key_set": s.mustSetting("llm_api_key") != "",
+		"llm_model":       s.mustSetting("llm_model"),
 		// 出站 HTTP 代理。no_http 为 1/true/* 时直连；其他非空值当作 NO_PROXY 主机列表。
 		"http_proxy": s.mustSetting("http_proxy"),
 		"no_http":    s.mustSetting("no_http"),
@@ -53,12 +54,22 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		s.err(w, 400, err)
 		return
 	}
-	if v, ok := in["socialdata_api_key"]; ok {
+	// M5：GET 不回传密钥明文，前端只在填了新值时才提交 —— 空值不再是「清空」，
+	// 只有非空才写入（换 key；清除 key 走页面上的清除按钮显式发 socialdata_api_key_clear）。
+	if v, ok := in["socialdata_api_key"]; ok && strings.TrimSpace(v) != "" {
 		if err := s.Store.SetSetting("socialdata_api_key", v); err != nil {
 			s.err(w, 500, err)
 			return
 		}
 		s.Watches.SetAPIKey(v)
+	}
+	// 显式清除：设置页的「清除」按钮发这个字段（值忽略）
+	if _, ok := in["socialdata_api_key_clear"]; ok {
+		if err := s.Store.SetSetting("socialdata_api_key", ""); err != nil {
+			s.err(w, 500, err)
+			return
+		}
+		s.Watches.SetAPIKey("")
 	}
 	if v, ok := in["socialdata_base_url"]; ok {
 		v = strings.TrimSuffix(strings.TrimSpace(v), "/")
@@ -78,13 +89,30 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		_ = s.Store.SetSetting("auth_user", v)
 	}
 	if v, ok := in["auth_pass"]; ok && v != "" {
-		_ = s.Store.SetSetting("auth_pass", v)
+		// M3：口令 bcrypt 哈希存储（len 上限对齐 bcrypt 的 72 字节限制）
+		if len(v) > 72 {
+			s.err(w, 400, errStr("密码长度不能超过 72 个字符"))
+			return
+		}
+		h, herr := hashPassword(v)
+		if herr != nil {
+			s.err(w, 500, herr)
+			return
+		}
+		_ = s.Store.SetSetting("auth_pass", h)
 	}
-	// parody 模式的 LLM（OpenAI 兼容）：base_url / api_key / model
-	for _, k := range []string{"llm_base_url", "llm_api_key", "llm_model"} {
+	// parody 模式的 LLM（OpenAI 兼容）：base_url / model 可清空改写；
+	// api_key 空值保留（M5 同上），非空才写。
+	for _, k := range []string{"llm_base_url", "llm_model"} {
 		if v, ok := in[k]; ok {
 			_ = s.Store.SetSetting(k, strings.TrimSpace(v))
 		}
+	}
+	if v, ok := in["llm_api_key"]; ok && strings.TrimSpace(v) != "" {
+		_ = s.Store.SetSetting("llm_api_key", strings.TrimSpace(v))
+	}
+	if _, ok := in["llm_api_key_clear"]; ok {
+		_ = s.Store.SetSetting("llm_api_key", "")
 	}
 	// Web 模式远程浏览器上游（chrome-driverless）
 	remoteTouched := false

@@ -214,6 +214,8 @@ export default {
   "refresh": "Refresh",
   "loading": "Loading…",
   "empty": "Nothing here yet",
+  "secretKeepHint": "Saved secrets are never echoed: leave a field blank to keep the stored value; enter a new one to replace it.",
+  "clear": "Clear",
   "saved": "Saved",
   "home": "Home",
   "homeSetupDone": "Setup complete",

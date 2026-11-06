@@ -3,7 +3,7 @@
 // 反向通知替代轮询：POST /api/webhook/socialdata（免登录，公网可达）。
 // 每次推送带 X-Timestamp / X-Event-Id / X-Signature（HMAC-SHA256，v1= 前缀），
 // signing string = "{X-Event-Id}.{X-Timestamp}.{raw body}"，secret 在设置页配置
-// （socialdata.tools dashboard 同步设置；未设置 secret 时其签名为固定 NULL key，不做强校验）。
+// （socialdata.tools dashboard 同步设置；未配置 secret 时拒绝一切推送——M1）。
 // 事件：new_tweet（socialdata，Twitter 形状）/ new_post（social_read 统一帖子对象）。
 package api
 
@@ -45,15 +45,16 @@ func (s *Server) effectiveWebhookBase() string {
 // warnNoSecretOnce 未配置 secret 的告警只打一次（该端点是公网免登录入口）。
 var warnNoSecretOnce sync.Once
 
-// verifySignature 校验 X-Signature（secret 未配置时跳过）。
+// verifySignature 校验 X-Signature。secret 未配置时直接拒绝（M1：该端点免登录
+// 且公网可达，任何人可伪造推文让设备播报、伪造超大推文 ID 把 LastTweetID 推前，
+// 之后真推文全被跳过）——先用登录口令在设置页配好 secret 再启用反向通知。
 func (s *Server) verifySignature(r *http.Request, raw []byte) bool {
 	secret := s.webhookSecret()
 	if secret == "" {
-		// 该端点免登录且公网可达：secret 未配置时任何人都能伪造推送。
 		warnNoSecretOnce.Do(func() {
-			log.Printf("[webhook] 未配置 socialdata_webhook_secret：/api/webhook/socialdata 免登录且不校验签名，任何人可伪造推送；请在设置页配置 secret")
+			log.Printf("[webhook] 未配置 socialdata_webhook_secret：/api/webhook/socialdata 拒绝一切推送（请在设置页配置 secret）")
 		})
-		return true // 未设置 secret：只做格式检查
+		return false
 	}
 	ts := r.Header.Get("X-Timestamp")
 	eventID := r.Header.Get("X-Event-Id")

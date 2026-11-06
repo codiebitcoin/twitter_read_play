@@ -29,6 +29,8 @@ func (s *Server) saveLivechat(w http.ResponseWriter, r *http.Request) {
 		s.err(w, http.StatusBadRequest, err)
 		return
 	}
+	// H2：python_path/extra_args 不再接受页面配置，由 SaveConfig 统一剥离
+	// （Validate 对非空值报错，兜底拦住绕过 Manager 的直写路径）。
 	saved, err := s.Live.SaveConfig(c)
 	if err != nil {
 		s.err(w, http.StatusBadRequest, err)

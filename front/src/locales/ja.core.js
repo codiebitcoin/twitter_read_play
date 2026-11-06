@@ -214,6 +214,8 @@ export default {
   "refresh": "更新",
   "loading": "読み込み中…",
   "empty": "まだデータがありません",
+  "secretKeepHint": "保存済みのシークレットは表示されません。空欄のままなら既存値を維持、入力すれば上書きされます。",
+  "clear": "クリア",
   "saved": "保存しました",
   "home": "ホーム",
   "homeSetupDone": "設定完了",

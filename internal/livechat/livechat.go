@@ -96,9 +96,11 @@ type SourceConfig struct {
 	// youtube_api / chat_downloader 忽略此字段。
 	Subscribe []string `json:"subscribe,omitempty"`
 
-	// chat_downloader：本机解释器与透传参数。
-	PythonPath string `json:"python_path,omitempty"` // 默认 python3
-	ExtraArgs  string `json:"extra_args,omitempty"`  // 透传 get_chat 的 CLI 参数（--start_time 等，按空格切）
+	// chat_downloader：解释器路径已不接受页面配置（H2 任意命令执行），
+	// 两个遗留字段保留只为兼容存量 JSON，保存时一律清空；解释器改由
+	// TRP_CHATDL_PYTHON 环境变量指定（默认 python3），extra_args 彻底弃用。
+	PythonPath string `json:"python_path,omitempty"` // Deprecated: 不再使用，保存时清空
+	ExtraArgs  string `json:"extra_args,omitempty"`  // Deprecated: 不再使用，保存时清空
 
 	// bilibili_blivedm：登录 Cookie（SESSDATA + bili_jct）。必填——游客 getDanmuInfo 会 -352，弹幕为空。
 	BilibiliCookie string `json:"bilibili_cookie,omitempty"`
@@ -116,6 +118,12 @@ type SourceConfig struct {
 	TargetID       string `json:"target_id,omitempty"`
 }
 
+// stripDeprecatedExecFields 清空废弃的 python_path/extra_args（H2）。
+// 保存与启动前都会调用：解释器只认 TRP_CHATDL_PYTHON，页面传值一律丢弃。
+func (c *SourceConfig) stripDeprecatedExecFields() {
+	c.PythonPath, c.ExtraArgs = "", ""
+}
+
 // Validate 基础校验：返回用户可读的错误文案（中文，直接给前端）。
 func (c SourceConfig) Validate() error {
 	if !ValidKind(c.Kind) {
@@ -123,6 +131,10 @@ func (c SourceConfig) Validate() error {
 	}
 	if strings.TrimSpace(c.Channel) == "" {
 		return fmt.Errorf("channel 不能为空")
+	}
+	// H2：解释器路径/透传参数不再接受外部配置（可直接拼出 /bin/sh 执行任意命令）。
+	if strings.TrimSpace(c.PythonPath) != "" || strings.TrimSpace(c.ExtraArgs) != "" {
+		return fmt.Errorf("python_path/extra_args 已废弃：解释器请用 TRP_CHATDL_PYTHON 环境变量配置")
 	}
 	if c.Kind == KindSource {
 		if strings.TrimSpace(c.RoleID) == "" {

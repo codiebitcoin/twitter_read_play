@@ -8,7 +8,9 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
@@ -47,6 +49,10 @@ type Options struct {
 	// Origin 固定的对外 origin（http://localhost:真实端口）。桌面模式由 ServeDesktop
 	// 探得端口后注入，api 层的 OAuth 回调一律用它拼地址（host 固定，不可配置）。
 	Origin string
+
+	// DesktopToken 桌面模式的本机凭据（每次启动随机生成）。窗口经
+	// /desktop-start?t=<token> 换会话 cookie；api 层据此校验 /api/* 请求（H4）。
+	DesktopToken string
 
 	// browserDriver 桌面模式的 mygo 窗口驱动；服务模式为 nil。
 	browserDriver browser.Driver
@@ -185,6 +191,7 @@ func Build(opt Options) (http.Handler, error) {
 		Desktop: opt.Desktop,
 		PCMode:  opt.PCMode || opt.Desktop, // 桌面打包天然是 PC：没有公网回调
 		Origin:  opt.Origin,
+		DesktopToken: opt.DesktopToken,
 	}
 	return srv.Routes(), nil
 }
@@ -276,7 +283,15 @@ func ServeDesktop(opt Options) error {
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 	opt.Origin = fmt.Sprintf("http://localhost:%d", port)
-	base := opt.Origin + "/"
+	// H4：桌面凭据每次启动随机生成，窗口入口走 /desktop-start?t=… 换会话 cookie ——
+	// 之前窗口直接裸开 /，本机任何进程/恶意网页（DNS 重绑定）都能调全部 API。
+	tbuf := make([]byte, 32)
+	if _, err := rand.Read(tbuf); err != nil {
+		_ = ln.Close()
+		return err
+	}
+	opt.DesktopToken = hex.EncodeToString(tbuf)
+	base := opt.Origin + "/desktop-start?t=" + opt.DesktopToken
 	mux, err := Build(opt)
 	if err != nil {
 		_ = ln.Close()
@@ -290,7 +305,8 @@ func ServeDesktop(opt Options) error {
 	}()
 
 	// 等服务就绪再开窗口（store 初始化很快，这里只是兜底）。
-	// 走 base（localhost）探测，顺带验证窗口要用的入口真实可达。
+	// 探测 /api/health（免登录），顺带验证服务真实可达；base 现在带 desktop-start
+	// token，不能直接拼探测路径。
 	// 用直连 client：进程里可能配了 http_proxy，探测不该依赖代理实现细节。
 	probe := &http.Client{
 		Timeout:   2 * time.Second,
@@ -299,7 +315,7 @@ func ServeDesktop(opt Options) error {
 	ready := false
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		resp, err := probe.Get(base + "api/health")
+		resp, err := probe.Get(opt.Origin + "/api/health")
 		if err == nil {
 			resp.Body.Close()
 			ready = true
@@ -308,7 +324,7 @@ func ServeDesktop(opt Options) error {
 		time.Sleep(100 * time.Millisecond)
 	}
 	if !ready {
-		log.Printf("警告: %s 5s 内没能自测通过，仍然开窗（窗口加载失败时会显示诊断页）", base)
+		log.Printf("警告: %s 5s 内没能自测通过，仍然开窗（窗口加载失败时会显示诊断页）", opt.Origin)
 	}
 	log.Printf("twitter_read_play %s 桌面模式（本地服务 %s，数据目录 %s）", opt.Version, base, opt.DataDir)
 	log.Printf("OAuth 回调（登记到 Twitch / Google 后台）: %s/callback/twitch 、 %s/callback/google", opt.Origin, opt.Origin)

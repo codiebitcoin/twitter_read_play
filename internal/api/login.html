@@ -57,6 +57,7 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   <form id="f">
     <label><span id="l-user">用户名</span><input id="u" autocomplete="username" autofocus></label>
     <label><span id="l-pass">密码</span><input id="p" type="password" autocomplete="current-password"></label>
+    <label style="display:none"><span id="l-pass2">确认密码</span><input id="p2" type="password" autocomplete="new-password"></label>
     <div class="warn" id="caps"></div>
     <button id="btn">登录</button>
     <div class="err" id="e" role="alert"></div>
@@ -68,8 +69,13 @@ const zh = (navigator.language || '').toLowerCase().startsWith('zh');
 const T = {
   user: zh ? '用户名' : 'Username',
   pass: zh ? '密码' : 'Password',
+  newPass: zh ? '设置密码（至少 6 位）' : 'New password (min 6 chars)',
+  pwdMismatch: zh ? '两次输入的密码不一致' : 'Passwords do not match',
   btn: zh ? '登录' : 'Sign in',
   btnBusy: zh ? '登录中…' : 'Signing in…',
+  btnInit: zh ? '初始化账号' : 'Initialize account',
+  btnInitBusy: zh ? '初始化中…' : 'Initializing…',
+  setupFoot: zh ? '首次使用：设置管理员账号密码' : 'First run: set the admin account',
   badCreds: zh ? '用户名或密码错误' : 'Invalid username or password',
   netErr: zh ? '网络错误：' : 'Network error: ',
   failed: zh ? '登录失败' : 'Sign-in failed',
@@ -104,14 +110,27 @@ document.getElementById('p').addEventListener('blur', () => capsEl.textContent =
 document.getElementById('f').onsubmit = async (ev) => {
   ev.preventDefault();
   const btn = document.getElementById('btn');
-  btn.disabled = true; btn.textContent = T.btnBusy;
+  btn.disabled = true; btn.textContent = setupMode ? T.btnInitBusy : T.btnBusy;
   document.getElementById('e').textContent = '';
   try {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: u.value, pass: p.value })
-    });
+    let res;
+    if (setupMode) {
+      if (p.value !== document.getElementById('p2').value) {
+        document.getElementById('e').textContent = T.pwdMismatch;
+        return;
+      }
+      res = await fetch('/api/setup/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: u.value.trim() || 'admin', pass: p.value })
+      });
+    } else {
+      res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: u.value, pass: p.value })
+      });
+    }
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.ok) location.href = '/';
     else if (res.status === 401) document.getElementById('e').textContent = data.error || T.badCreds;
@@ -119,9 +138,36 @@ document.getElementById('f').onsubmit = async (ev) => {
   } catch (e) {
     document.getElementById('e').textContent = T.netErr + e.message;
   } finally {
-    btn.disabled = false; btn.textContent = T.btn;
+    btn.disabled = false; btn.textContent = setupMode ? T.btnInit : T.btn;
   }
 };
+
+// ---- 首次设置模式：未配置口令时（M3 移除默认密码），登录页变为初始化表单 ----
+let setupMode = false;
+(async () => {
+  try {
+    const res = await fetch('/api/auth/status');
+    const st = await res.json().catch(() => ({}));
+    if (st && st.configured === false) enterSetupMode();
+  } catch {}
+})();
+
+function enterSetupMode() {
+  setupMode = true;
+  const p2 = document.getElementById('p2');
+  p2.parentElement.style.display = '';
+  document.getElementById('l-pass').textContent = T.newPass;
+  document.getElementById('l-user').textContent = T.user;
+  if (!u.value) u.value = 'admin';
+  u.parentElement.style.display = '';
+  document.getElementById('btn').textContent = T.btnInit;
+  document.getElementById('foot').textContent = T.setupFoot;
+  document.getElementById('p').autocomplete = 'new-password';
+  p2.addEventListener('keydown', (ev) => {
+    if (ev.getModifierState) capsEl.textContent = ev.getModifierState('CapsLock') ? 'ⓘ ' + T.caps : '';
+  });
+  p2.addEventListener('blur', () => capsEl.textContent = '');
+}
 </script>
 </body>
 </html>

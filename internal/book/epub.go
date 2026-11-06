@@ -64,16 +64,28 @@ type ncxDoc struct {
 	} `xml:"navMap>navPoint"`
 }
 
+// epub limits（M6）：上传入口已限 200MB 压缩包，但 zip 解压后可以任意膨胀
+// （spine 重复引用同一个成员即可让内存无界增长）——读取总量与条目数都设上限。
+const (
+	epubMaxMemberBytes = 64 << 20   // 单个成员解压上限
+	epubMaxTotalBytes  = 512 << 20  // 整本累计解压上限
+	epubMaxMembers     = 20000      // zip 成员数上限（防极端目录表）
+)
+
 // ParseEPUB 解析 EPUB 字节流。
 func ParseEPUB(data []byte) (*EPUBContent, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, fmt.Errorf("not a valid epub (zip): %w", err)
 	}
+	if len(zr.File) > epubMaxMembers {
+		return nil, fmt.Errorf("epub has too many entries (%d > %d)", len(zr.File), epubMaxMembers)
+	}
 	files := map[string]*zip.File{}
 	for _, f := range zr.File {
 		files[f.Name] = f
 	}
+	var totalRead int64
 	read := func(name string) ([]byte, error) {
 		f, ok := files[name]
 		if !ok {
@@ -84,7 +96,13 @@ func ParseEPUB(data []byte) (*EPUBContent, error) {
 			return nil, err
 		}
 		defer rc.Close()
-		return io.ReadAll(io.LimitReader(rc, 64<<20))
+		// 先试探额度，再按剩余额度读取（累计超限直接报错，不静默截断正文）
+		if totalRead >= epubMaxTotalBytes {
+			return nil, fmt.Errorf("epub decompressed size exceeds %d MB", epubMaxTotalBytes>>20)
+		}
+		b, err := io.ReadAll(io.LimitReader(rc, min64(epubMaxMemberBytes, epubMaxTotalBytes-totalRead)))
+		totalRead += int64(len(b))
+		return b, err
 	}
 	var cont containerXML
 	cb, err := read("META-INF/container.xml")
@@ -140,6 +158,7 @@ func ParseEPUB(data []byte) (*EPUBContent, error) {
 	}
 
 	var sb strings.Builder
+	seenSpine := map[string]bool{} // M6：同一成员重复引用只读一次（zip 炸弹的主要放大器）
 	for _, ref := range pkg.Spine.ItemRefs {
 		href, ok := mediaByID[ref.IDRef]
 		if !ok {
@@ -153,6 +172,10 @@ func ParseEPUB(data []byte) (*EPUBContent, error) {
 		if i := strings.IndexByte(full, '#'); i >= 0 {
 			full = full[:i]
 		}
+		if seenSpine[full] {
+			continue
+		}
+		seenSpine[full] = true
 		b, err := read(full)
 		if err != nil {
 			continue
@@ -236,4 +259,12 @@ func firstNonEmpty(ss ...string) string {
 		}
 	}
 	return ""
+}
+
+// min64 取两者较小值。
+func min64(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
 }

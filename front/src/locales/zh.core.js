@@ -214,6 +214,8 @@ export default {
   "refresh": "刷新",
   "loading": "加载中…",
   "empty": "暂无内容",
+  "secretKeepHint": "已设置的密钥不回显：留空表示保留原值，填新值则覆盖。",
+  "clear": "清除",
   "saved": "已保存",
   "home": "首页",
   "homeSetupDone": "配置已完成",

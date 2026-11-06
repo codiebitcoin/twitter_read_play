@@ -2,7 +2,6 @@ package twitter
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,12 +11,13 @@ import (
 	"twitter_read_play/internal/netcfg"
 )
 
-// 共享的宽松 HTTP 客户端（部分平台 TLS/反爬严格）。
+// 共享的出站 HTTP 客户端。TLS 恢复默认证书校验（M4：InsecureSkipVerify 曾全局
+// 关闭，中间人可截获 X 官方 Bearer token 并注入伪造推文）；自建反代用自签证书
+// 的场景把 CA 放进系统信任（Linux: SSL_CERT_FILE / update-ca-certificates）。
 var sharedClient = &http.Client{
 	Timeout: 30 * time.Second,
 	Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		Proxy:           netcfg.ProxyFunc,
+		Proxy: netcfg.ProxyFunc,
 	},
 }
 

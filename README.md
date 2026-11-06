@@ -21,14 +21,14 @@ docker run -d -p 8080:8080 -v trp-data:/app/data \
 
 ## Use it
 
-1. **Sign in** (default `admin` / `11111`, change it under Settings → Account).
+1. **Initialize & sign in** — the first visit asks you to set the admin account and password (or preset them via the `AUTH_USER` / `AUTH_PASS` env; the password is stored as a bcrypt hash), then manage it under Settings → Account.
 2. **Add a device** — the + Add wizard discovers Codie devices on your LAN and walks you through pairing (enter the 6-digit code shown on the device).
 3. **Set up a role** — a role bundles the persona prompt, cloned voice and VRM avatar.
 4. **Bind a slot** — assign the role to a device slot, then sync (voice clone + VRM) to the device.
 5. **Point it at an account** — add a data source (e.g. a socialdata.tools API key) and the account handle, enable watching.
 6. New posts are fetched on a schedule and **read aloud by the device** in that persona and voice; broadcast history lands under Logs.
 
-Sign-in credentials priority: value saved under Settings → Account > `AUTH_USER` / `AUTH_PASS` env > default `admin / 11111`.
+Sign-in credentials priority: value saved under Settings → Account (stored as a bcrypt hash) > `AUTH_USER` / `AUTH_PASS` env (plaintext, for bootstrapping only). With neither set, the sign-in page asks you to create the account on first open — there is no built-in default password.
 
 ## Desktop packages
 

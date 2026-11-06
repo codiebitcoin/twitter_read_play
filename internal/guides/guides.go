@@ -8,6 +8,7 @@ package guides
 
 import (
 	"embed"
+	"html"
 	"io/fs"
 	"net/http"
 	"strconv"
@@ -145,10 +146,25 @@ func Serve(st *store.Store) http.HandlerFunc {
 			http.Error(w, "guide file missing", http.StatusInternalServerError)
 			return
 		}
-		base := strings.TrimRight(strings.TrimSpace(r.URL.Query().Get("base")), "/")
+		// base 是外部可控查询参数，嵌进 HTML 正文前必须转义（M2 反射型 XSS），
+		// 并去掉控制字符（换行/零宽字符可干扰页面结构）
+		base := sanitizeBase(r.URL.Query().Get("base"))
 		body := strings.ReplaceAll(raw, "{{BASE}}", base)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write([]byte(body))
 	}
+}
+
+// sanitizeBase 清洗 ?base= 回显值：去首尾空白与尾部斜杠、剔除控制字符、HTML 转义。
+func sanitizeBase(s string) string {
+	s = strings.TrimRight(strings.TrimSpace(s), "/")
+	var b strings.Builder
+	for _, r := range s {
+		if r < 0x20 || r == 0x7f {
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return html.EscapeString(b.String())
 }
