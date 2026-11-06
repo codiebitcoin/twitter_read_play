@@ -25,6 +25,7 @@ func (s *Server) roleVRMUpload(w http.ResponseWriter, r *http.Request) {
 		s.err(w, 404, errStr(s.tr(r, "err.role_not_found")))
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 220<<20) // VRM 几十 MB 是常态，上限与书上传对齐（M6）
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		s.err(w, 400, err)
