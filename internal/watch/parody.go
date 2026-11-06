@@ -97,6 +97,10 @@ func (m *Manager) GenerateParody(roleID string) (model.Tweet, error) {
 		n = r.ParodyContextN
 	}
 	ctxTweets := m.parodyContext(r, n)
+	// M7：背景推文全部包进 <external_tweet> 隔离层，第三方内容仅作风格参考
+	for i, t := range ctxTweets {
+		ctxTweets[i].Text = wrapExternalTweet(t.EffectiveText())
+	}
 
 	// 变量替换:{{FIXED_USER}} / {{NAME}} / {{DESCRIPTION}} / {{CONTEXT_TWEETS}} 全部注入。
 	system := renderParodyPrompt(tpl, r, ctxTweets)
