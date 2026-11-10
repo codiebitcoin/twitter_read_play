@@ -1,6 +1,7 @@
 package netcfg
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -40,7 +41,9 @@ func envFirst(keys ...string) string {
 	return ""
 }
 
-// bypass 实现 NO_PROXY 的常用语义：* 全放行，逗号分隔，域名后缀匹配。
+// bypass 实现 NO_PROXY 的常用语义：* 全放行，逗号分隔，域名后缀匹配，
+// 以及 IP / CIDR 网段匹配（如 192.168.1.1/23：代理用于外网抓取，
+// 局域网设备与内网服务必须直连）。
 // 请求的 host 不含端口，所以条目里的 :port 直接忽略。
 func bypass(host, noProxy string) bool {
 	host = strings.ToLower(strings.TrimSuffix(host, "."))
@@ -50,17 +53,35 @@ func bypass(host, noProxy string) bool {
 	if strings.TrimSpace(noProxy) == "*" {
 		return true
 	}
+	hostIP := net.ParseIP(host)
 	for _, raw := range strings.Split(noProxy, ",") {
 		item := strings.TrimSpace(strings.ToLower(raw))
 		if item == "" {
 			continue
 		}
 		item = strings.TrimPrefix(item, ".")
+		// CIDR 条目（含 "/"）：按网段匹配
+		if strings.Contains(item, "/") {
+			if hostIP != nil {
+				if _, cidr, err := net.ParseCIDR(strings.TrimSuffix(item, "/")); err == nil && cidr.Contains(hostIP) {
+					return true
+				}
+			}
+			continue
+		}
 		if h, _, ok := strings.Cut(item, ":"); ok {
 			item = h
 		}
 		if item == "" {
 			continue
+		}
+		if hostIP != nil {
+			if ip := net.ParseIP(item); ip != nil {
+				if hostIP.Equal(ip) {
+					return true
+				}
+				continue
+			}
 		}
 		if host == item || strings.HasSuffix(host, "."+item) {
 			return true

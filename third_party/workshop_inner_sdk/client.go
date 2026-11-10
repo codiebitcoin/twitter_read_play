@@ -69,8 +69,24 @@ func New(addr string) (*Client, error) {
 		fw:      &firmwareState{},
 		// 默认 2 分钟：cloth/VRM 上传约 15MB，局域网 WiFi 下 15s 会超时；
 		// 短请求不受影响（超时只是上限）。特殊场景仍可用 SetHTTPTimeout 覆盖。
-		HTTP: &http.Client{Timeout: 2 * time.Minute},
+		//
+		// Transport 必须直连（Proxy: nil）：设备都在局域网，而宿主进程常配 HTTP_PROXY
+		// 用于外网抓取（socialdata 等），默认 Transport 会把内网设备请求也送进代理，
+		// 代理返回 502 → 配对/状态/上传全部失败（实测：设置页配了 http_proxy 后
+		// pair/start 报 "clt01:  (HTTP 502)"）。
+		HTTP: &http.Client{Timeout: 2 * time.Minute, Transport: directTransport()},
 	}, nil
+}
+
+// directTransport 返回一份绕过代理的 Transport（保留默认 TLS/连接池参数）。
+func directTransport() *http.Transport {
+	t, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return &http.Transport{Proxy: nil}
+	}
+	clone := t.Clone()
+	clone.Proxy = nil
+	return clone
 }
 
 // ---- 签名 ----

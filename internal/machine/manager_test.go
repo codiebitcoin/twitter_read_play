@@ -1,10 +1,13 @@
 package machine
 
 import (
+	"net/http"
 	"testing"
 
 	"twitter_read_play/internal/model"
 	"twitter_read_play/internal/store"
+
+	clt01 "workshop_inner_sdk"
 )
 
 // 角色被删除后必须把它从机器的启用角色白名单里摘掉：白名单里只剩一个不存在的 id，
@@ -50,5 +53,27 @@ func TestDropEnabledRoles(t *testing.T) {
 	}
 	if b, _ := m2.Get("m2"); len(b.EnabledRoles) != 0 {
 		t.Errorf("重启后 m2 白名单 = %v, want 空", b.EnabledRoles)
+	}
+}
+
+// 设备客户端必须直连：宿主进程常配 HTTP_PROXY 用于外网抓取，局域网设备
+// 请求若走默认 Transport 会被送进代理 → 配对/状态/上传 502（实测 Black 设备
+// 配了代理后 pair/start 报 clt01 HTTP 502）。SDK 的 Transport.Proxy 必须为 nil。
+func TestDeviceClientBypassesProxy(t *testing.T) {
+	t.Setenv("HTTP_PROXY", "http://192.168.1.14:7890")
+	t.Setenv("HTTPS_PROXY", "http://192.168.1.14:7890")
+	c, err := clt01.New("192.168.1.208:8081")
+	if err != nil {
+		t.Fatalf("clt01.New: %v", err)
+	}
+	tr, ok := c.HTTP.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("设备客户端 Transport 类型 = %T", c.HTTP.Transport)
+	}
+	if tr.Proxy != nil {
+		req, _ := http.NewRequest("POST", "http://192.168.1.208:8081/v1/api/auth/pair/request", nil)
+		if u, _ := tr.Proxy(req); u != nil {
+			t.Fatalf("设备请求不应走代理，实际代理 = %v", u)
+		}
 	}
 }
