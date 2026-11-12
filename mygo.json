@@ -1,7 +1,7 @@
 {
   "name": "Twitter Read Play",
   "identifier": "io.github.codiebitcoin.twitter-read-play",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": ".",
   "out": "build",
   "macos": {
