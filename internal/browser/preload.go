@@ -43,6 +43,38 @@ func loginPreload(cfg providerConfig) string {
 	return b.String()
 }
 
+// PickPreload 选用户窗注入：右下角悬浮一个「选定当前用户」按钮。
+// 点击把当前 href 记到 window.__trpPick，由 Go 侧 WatchPick 每秒轮询取走；
+// Go 解析完调 window.__trpPickResult(ok, msg) 把结果回显在按钮上。
+// 文案与 LoginHint 一样用中文硬编码（Go 侧注入，不走前端 i18n）。
+func PickPreload() string {
+	return `(() => {
+  if (window.__trpPickInstalled) return;
+  window.__trpPickInstalled = true;
+  const LABEL = '📌 选定当前用户';
+  const show = () => {
+    if (document.getElementById('__trp_pick_btn')) return;
+    const b = document.createElement('button');
+    b.id = '__trp_pick_btn';
+    b.textContent = LABEL;
+    b.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:10px 18px;'
+      + 'font:14px/1.4 system-ui,-apple-system,"PingFang SC",sans-serif;color:#fff;background:#2b5fd9;'
+      + 'border:none;border-radius:22px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)';
+    b.onclick = () => {
+      window.__trpPick = { href: location.href, at: Date.now() };
+      b.textContent = '⏳ 识别中…';
+    };
+    window.__trpPickResult = (ok, msg) => {
+      b.textContent = (ok ? '✓ ' : '✗ ') + msg;
+      setTimeout(() => { b.textContent = LABEL; }, 3000);
+    };
+    (document.body || document.documentElement).appendChild(b);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+  else show();
+})();`
+}
+
 // capturePreload 注入工作窗口：劫持 fetch / XMLHttpRequest，把命中的响应
 // 存进 window.__trpCapture（有上限），由 Go 侧 Page.Eval 取回。
 func capturePreload(p Provider) string {

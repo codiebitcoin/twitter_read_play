@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"twitter_read_play/internal/dbg"
 )
 
 func (m *Manager) ensureWork(ctx context.Context, p Provider) (Window, error) {
@@ -20,6 +22,7 @@ func (m *Manager) ensureWork(ctx context.Context, p Provider) (Window, error) {
 	if !ok {
 		return nil, fmt.Errorf("未知平台 %q", p)
 	}
+	dbg.Logf("work: 打开 %s 工作窗 url=%s hidden=true", p, cfg.HomeURL)
 	w, err := m.driver.Open(OpenOptions{
 		Title: "TRP · " + cfg.Name, URL: cfg.HomeURL, Hidden: true,
 		PreloadScript: capturePreload(p), UserAgent: providerUA(cfg),
@@ -29,6 +32,7 @@ func (m *Manager) ensureWork(ctx context.Context, p Provider) (Window, error) {
 		return nil, err
 	}
 	if err := waitReady(ctx, w); err != nil {
+		dbg.Logf("work: %s 工作窗 readyState 等待失败 err=%v", p, err)
 		w.Destroy()
 		return nil, fmt.Errorf("%s 页面加载失败: %w", cfg.Name, err)
 	}
@@ -36,6 +40,11 @@ func (m *Manager) ensureWork(ctx context.Context, p Provider) (Window, error) {
 	// 后续 Eval 就打到空白页上（cookie 全空 → 误判未登录）。这里再等一拍，
 	// 确认真的导航到了 http(s) 页面。
 	if !waitNavigated(ctx, w) {
+		if v, e := w.Eval(ctx, "location.href"); e == nil {
+			dbg.Logf("work: %s 工作窗导航超时，停在 %v（多为代理/网络加载失败）", p, v)
+		} else {
+			dbg.Logf("work: %s 工作窗导航超时", p)
+		}
 		w.Destroy()
 		return nil, fmt.Errorf("%s 页面加载超时", cfg.Name)
 	}
@@ -58,6 +67,7 @@ func (m *Manager) evalWork(ctx context.Context, p Provider, code string) (any, e
 	if err == nil || !w.IsDestroyed() {
 		return v, err
 	}
+	dbg.Logf("eval: %s 窗口已失效（重开重试）err=%v", p, err)
 	w, err = m.ensureWork(ctx, p)
 	if err != nil {
 		return nil, err

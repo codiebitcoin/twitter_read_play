@@ -61,7 +61,7 @@ type Role struct {
 	ModelProfile string `json:"model_profile,omitempty"` // ai provider profile id
 	TTSVolume    int    `json:"tts_volume,omitempty"`
 	Language     string `json:"language,omitempty"`
-	SpeakMode    string `json:"speak_mode,omitempty"`   // 播报通道模式：""=按固件版本自动（默认，≥1.5.3 chat/turns，<1.5.3 tts_audition）；"chat"=LLM+TTS 管线；"tts"=tts_audition 直读合成（绕过 LLM）
+	SpeakMode    string `json:"speak_mode,omitempty"`   // 播报通道模式：""/"tts"=TTS 直读合成（默认，绕过 LLM；≥1.5.3 走 tts/utterances，<1.5.3 回退 tts_audition）；"chat"=LLM+TTS 管线
 	SpeakPrompt  string `json:"speak_prompt,omitempty"` // 口语化转换 prompt
 	// SpeakRewrite 播报前是否先走 LLM 口语化：tweet → LLM(SpeakPrompt) → PlayChat。
 	// 需要 Settings 里配好 LLM（没配时前端连开关都不显示）。

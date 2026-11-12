@@ -478,7 +478,7 @@ export function RoleStep({
           <label className="field">{edit.platform === 'rss' ? t('rssFeed') : t('username')}
             <input value={edit.username} placeholder={edit.platform === 'rss' ? t('usernamePhRss') : t('usernamePh')} onChange={set('username')} />
           </label>
-          {edit.live_url ? (
+          {SHOW_LIVE && edit.live_url ? (
             <label className="field span-2">{t('liveUrl')}
               <input value={edit.live_url} readOnly />
               <span className="hint">{t('wizPageLiveFilled')}</span>

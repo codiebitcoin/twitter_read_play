@@ -427,6 +427,14 @@ func ValidProvider(p Provider) bool {
 	return ok
 }
 
+// HomeURLFor 平台首页（选用户窗在角色还没配目标时的起点）。未知平台回 X 首页。
+func HomeURLFor(p Provider) string {
+	if c, ok := configFor(p); ok && c.HomeURL != "" {
+		return c.HomeURL
+	}
+	return "https://x.com/home"
+}
+
 func (c providerConfig) hostAllowed(host string) bool {
 	for _, h := range c.Hosts {
 		if h == host {

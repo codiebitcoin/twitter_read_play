@@ -2,6 +2,7 @@
 // 从原先的单文件 SetupWizard.jsx 拆出，代码保持原样。
 import { uiPlatform } from '../roleDetail/shared.js';
 
+// 绑定槽位是必选步：slot 默认空，用户显式选了空闲槽位才能进下一步（一台设备一个激活槽位）。
 export const BASE_STEPS = ['wizStepMachine', 'wizStepRole', 'wizStepBind', 'wizStepSync', 'wizStepDone'];
 export const SLOTS = [1, 2, 3, 4, 5];
 

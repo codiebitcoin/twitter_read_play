@@ -106,20 +106,22 @@ type Manager struct {
 	status    map[Provider]Status
 	tokens    map[Provider]TokenSet
 	queues    map[Provider]*sync.Mutex
+	pickWatch map[string]chan struct{} // 选用户窗监听去重（key = pick-<roleID>）
 }
 
 // NewManager 创建；driver 为 nil 时 Available=false（Web 模式）。
 // st 用于持久化最近一次登录态探测结果，重启后先展示上次状态，等下一次探测再更新。
 func NewManager(d Driver, st *store.Store) *Manager {
 	m := &Manager{
-		driver: d,
-		st:     st,
-		login:  map[Provider]Window{},
-		work:   map[Provider]Window{},
-		views:  map[string]viewEntry{},
-		status: map[Provider]Status{},
-		tokens: map[Provider]TokenSet{},
-		queues: map[Provider]*sync.Mutex{},
+		driver:    d,
+		st:        st,
+		login:     map[Provider]Window{},
+		work:      map[Provider]Window{},
+		views:     map[string]viewEntry{},
+		status:    map[Provider]Status{},
+		tokens:    map[Provider]TokenSet{},
+		queues:    map[Provider]*sync.Mutex{},
+		pickWatch: map[string]chan struct{}{},
 	}
 	if st != nil {
 		var saved map[Provider]Status

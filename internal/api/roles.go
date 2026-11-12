@@ -117,6 +117,10 @@ func (s *Server) upsertRole(w http.ResponseWriter, r *http.Request) {
 		if role.AnimationIntensity == 0 {
 			role.AnimationIntensity = model.AnimIntensityHigh
 		}
+		// 播报模式默认 TTS 直读（不经设备 LLM）；前端设置页也按 tts 兜底，这里兜住纯 API 调用。
+		if strings.TrimSpace(role.SpeakMode) == "" {
+			role.SpeakMode = "tts"
+		}
 	}
 	// enabled 缺省语义（曾出事故：新建角色/部分字段 PUT 没带 enabled → bool 零值 false，
 	// 角色被静默停用，RolesPage 上出现莫名其妙的「停用」标签且不再自动播报）：

@@ -14,6 +14,9 @@ type ViewOptions struct {
 	Key           string // 按平台复用：x / weibo / xiaohongshu / ... / generic
 	Provider      Provider
 	Width, Height int
+	// PreloadScript 需要注入脚本的窗口传（目前只有「选用户」窗）；
+	// 普通「查看账号」窗保持不注入，与工作窗完全隔离。
+	PreloadScript string
 }
 
 // ViewResult 查看窗口打开结果。
@@ -89,7 +92,8 @@ func (m *Manager) OpenView(ctx context.Context, opts ViewOptions) (ViewResult, e
 
 	w, err := m.driver.Open(OpenOptions{
 		Title: title, URL: target,
-		Width: width, Height: height,
+		PreloadScript: opts.PreloadScript,
+		Width:         width, Height: height,
 		Hidden: false, StateKey: "view-" + key,
 	})
 	if err != nil {

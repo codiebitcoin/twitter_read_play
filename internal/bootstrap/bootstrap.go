@@ -19,11 +19,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"twitter_read_play/internal/api"
 	"twitter_read_play/internal/book"
 	"twitter_read_play/internal/browser"
+	"twitter_read_play/internal/dbg"
 	"twitter_read_play/internal/guides"
 	"twitter_read_play/internal/livechat"
 	"twitter_read_play/internal/machine"
@@ -64,27 +66,34 @@ type Options struct {
 }
 
 // Build 初始化全部管理器并返回路由。
-func Build(opt Options) (http.Handler, error) {
+// 第二个返回值是退出善后（幂等，可重复调用）：停轮询、停直播弹幕、销毁浏览器窗口。
+// 桌面模式必须在退出前调用，否则进程结束后台还在抓网页、派播报。
+func Build(opt Options) (http.Handler, func(), error) {
 	st, err := store.New(opt.DataDir)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	// Debug 日志开关存库，启动即恢复（设置页改，实时生效）
+	if v, _ := st.GetSetting("debug"); v == "1" {
+		dbg.Set(true)
+		log.Printf("[debug] Debug 日志已开启（设置页可关）")
 	}
 	// 直播弹幕申请教程：HTML 打进二进制，SQLite provider_guides 当索引
 	if err := guides.Seed(st); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	mm, err := machine.NewManager(st)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	rm, err := role.NewManager(st)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	provider := &twitter.Socialdata{APIKey: opt.APIKey, BaseURL: opt.BaseURL}
 	um, err := upstream.NewManager(st)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	um.SetDefaultBaseURL(opt.BaseURL)
 	// 浏览器会话：
@@ -105,30 +114,30 @@ func Build(opt Options) (http.Handler, error) {
 		k, _ := st.GetSetting("socialdata_api_key")
 		return k
 	}); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := browser.RegisterFeedAdapters(reg, bm); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := livechat.RegisterBilibiliLiveAdapter(reg, bm); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := livechat.RegisterBrowserLiveAdapters(reg, bm); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cm, err := source.NewManager(st)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	mode := source.ModeWeb
 	if opt.Desktop {
 		mode = source.ModeDesktop
 	}
 	if err := cm.EnsureLiveDefaults(reg); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := cm.EnsureBrowserChannels(mode, reg); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// 直播运行时：KindSource 配置通过新渠道 + 适配器动态构造 Streamer。
 	lcm, err := livechat.NewManagerWithFactory(st, makeLiveFactory(cm, reg),
@@ -136,14 +145,14 @@ func Build(opt Options) (http.Handler, error) {
 			return livechat.BilibiliCookieFromBrowser(ctx, bm)
 		}))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := reconcileRemovedLiveChannels(cm, rm, lcm, reg); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	wm, err := watch.NewManager(st, provider, um, mm, rm)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	wm.SetSource(cm, reg, mode)
 	// sqlite 里保存的 key / base_url 优先于 env
@@ -171,7 +180,7 @@ func Build(opt Options) (http.Handler, error) {
 	// 书归属角色、不跨角色共享；启动时给升级前的旧书补归属（只写 owner，不删任何书）。
 	lib, err := book.NewLibrary(st)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	lib.LoadProgress()
 	roles := rm.List()
@@ -192,8 +201,20 @@ func Build(opt Options) (http.Handler, error) {
 		PCMode:  opt.PCMode || opt.Desktop, // 桌面打包天然是 PC：没有公网回调
 		Origin:  opt.Origin,
 		DesktopToken: opt.DesktopToken,
+		LogPath: opt.desktopLogPath, // 日志模块 zip 下载用；服务模式为空（日志在 stdout）
 	}
-	return srv.Routes(), nil
+	// 退出善后：先停轮询（不再产生新抓取/播报），再停直播弹幕（不再用浏览器窗），
+	// 最后销毁浏览器窗口（含隐藏工作窗——它们不关，mygo 的「最后一个窗口关闭」
+	// 退不出来）。wm.Stop / lcm.Close 都是一次性的，用 Once 保证幂等。
+	var once sync.Once
+	cleanup := func() {
+		once.Do(func() {
+			wm.Stop()
+			lcm.Close()
+			bm.Close()
+		})
+	}
+	return srv.Routes(), cleanup, nil
 }
 
 // legacyBookOwner 升级前旧书（没有 RoleID）的统一归属目标：
@@ -226,10 +247,11 @@ func legacyBookOwner(roles []*role.Role) string {
 
 // Serve 阻塞运行服务模式。
 func Serve(opt Options) error {
-	mux, err := Build(opt)
+	mux, cleanup, err := Build(opt)
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	log.Printf("twitter_read_play %s 监听 %s（数据目录 %s）", opt.Version, opt.Addr, opt.DataDir)
 	return http.ListenAndServe(opt.Addr, mux)
 }
@@ -292,7 +314,7 @@ func ServeDesktop(opt Options) error {
 	}
 	opt.DesktopToken = hex.EncodeToString(tbuf)
 	base := opt.Origin + "/desktop-start?t=" + opt.DesktopToken
-	mux, err := Build(opt)
+	mux, cleanup, err := Build(opt)
 	if err != nil {
 		_ = ln.Close()
 		return err
@@ -328,7 +350,7 @@ func ServeDesktop(opt Options) error {
 	}
 	log.Printf("twitter_read_play %s 桌面模式（本地服务 %s，数据目录 %s）", opt.Version, base, opt.DataDir)
 	log.Printf("OAuth 回调（登记到 Twitch / Google 后台）: %s/callback/twitch 、 %s/callback/google", opt.Origin, opt.Origin)
-	return runWindow(opt, base, drv)
+	return runWindow(opt, base, drv, cleanup)
 }
 
 // DesktopDataDir 桌面模式默认数据目录：各平台用户配置目录下的 TwitterReadPlay。

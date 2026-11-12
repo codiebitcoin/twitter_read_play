@@ -6,6 +6,9 @@
 //   设备 → 设置角色 → 绑定槽位 → 同步角色信息 → 完成
 //   (machine → role → binding → sync → done)
 //
+// 槽位是必选项：slot 默认空，用户显式选了空闲槽位「下一步」才解锁——避免一不留神把
+// 角色绑到错误的槽位上（设备一个激活槽位就是一套角色/音色）。
+//
 // 参考项目里的「账号（Account）」在本项目对应「角色（Role）」：角色才是人设/音色/VRM 的整体包。
 // 所有步骤都复用现有接口，不新增"一键配齐"事务：
 //   - 机器：POST /api/machines + pair/start|confirm，局域网扫描 GET /api/machines/discover
@@ -57,10 +60,10 @@ export default function SetupWizard({ machines, roles, onClose, onDone }) {
   const [newRole, setNewRole] = useState({ name: '', description: '', prompt: '', platform: 'x', username: '', feed_target: '', live_url: '' });
   const [persistedRole, setPersistedRole] = useState(null);
 
-  // Step 3：绑定槽位。
-  const [slot, setSlot] = useState(1);
+  // Step 3：绑定槽位（必选）。0 = 未选择，进这一步时保持空，选了空闲槽位才能下一步。
+  const [slot, setSlot] = useState(0);
 
-  // Step 4：同步。
+  // 同步（绑定随同步写入）。
   const [sync, setSync] = useState({ mode: '', busy: false, ok: false, skipped: false, error: '', detail: '' });
 
   const [saving, setSaving] = useState(false);
@@ -127,14 +130,8 @@ export default function SetupWizard({ machines, roles, onClose, onDone }) {
     return out;
   }, [roleList, machineId, roleId]);
 
-  // 换机器/换角色后：优先沿用该角色在这台机器上的旧槽位，否则取第一个空闲槽位。
-  useEffect(() => {
-    if (!machineId) return;
-    const own = (selectedRole?.bindings || []).find((b) => b.machine_id === machineId);
-    if (own && own.slot > 0) { setSlot(own.slot); return; }
-    const free = SLOTS.find((s) => !occupied.has(s));
-    setSlot(free || 1);
-  }, [machineId, roleId, selectedRole, occupied]);
+  // 换机器/换角色后 slot 回到「未选择」：槽位必选是这一步的硬要求，不替用户做决定。
+  useEffect(() => { setSlot(0); }, [machineId, roleId]);
 
   // 目标（机器/角色/槽位）变了 → 之前的同步结果作废，避免把旧 slot 的"成功"带过去。
   useEffect(() => {
@@ -290,7 +287,7 @@ export default function SetupWizard({ machines, roles, onClose, onDone }) {
   };
 
   // 音色、形象都没配时，同步步骤没有东西可推 —— 自动视为「跳过」，不用再手点「稍后再同步」。
-  // 原 slot 模式本来就不推形象/音色，同样直接跳过。
+  // 原 slot 模式本来就不推形象/音色，同样直接跳过。（绑定已在「绑定槽位」步落库。）
   useEffect(() => {
     if (stepNum !== 3 || sync.busy || sync.ok || sync.skipped) return;
     if (slotVoiceVrm(selectedRole)) { setSync({ mode: 'skip', busy: false, ok: false, skipped: true, error: '', detail: t('wizSyncAutoSkipSlot') }); return; }
@@ -311,6 +308,7 @@ export default function SetupWizard({ machines, roles, onClose, onDone }) {
         || String(info.live_url || '').trim());
       return !!(info.name.trim() && String(info.prompt || '').trim() && hasTarget) && base;
     }
+    // 绑定步：必须显式选一个空闲槽位（slot 默认 0 = 未选择），占用槽位也不能通过
     if (stepNum === 2) return !!roleId && slot > 0 && !occupied.has(slot);
     if (stepNum === 3) return sync.ok || sync.skipped;
     return true;
@@ -458,8 +456,9 @@ export default function SetupWizard({ machines, roles, onClose, onDone }) {
                     extra={selectedRole ? platformLabel(selectedRole.platform) : ''} />
                 </div>
                 <label className="field" style={{ maxWidth: 260 }}>
-                  {t('slot')}
+                  {t('slot')} <span className="badge warn">{t('wizSlotRequiredBadge')}</span>
                   <select value={slot} onChange={(e) => setSlot(+e.target.value)}>
+                    <option value="0" disabled>{t('wizSlotEmpty')}</option>
                     {SLOTS.map((s) => (
                       <option key={s} value={s} disabled={occupied.has(s)}>
                         slot {s}{occupied.has(s) ? ' · ' + t('wizSlotTaken').replace('%s', occupied.get(s).name || occupied.get(s).id) : ''}
@@ -468,7 +467,8 @@ export default function SetupWizard({ machines, roles, onClose, onDone }) {
                   </select>
                   <span className="hint">{t('wizSlotHint')}</span>
                 </label>
-                {occupied.has(slot) ? <p className="err-banner">{t('wizSlotConflict')}</p> : null}
+                {slot === 0 ? <p className="hint" style={{ color: 'var(--warn, #e0a24a)' }}>⚠ {t('wizSlotRequired')}</p> : null}
+                {slot > 0 && occupied.has(slot) ? <p className="err-banner">{t('wizSlotConflict')}</p> : null}
               </>
             )}
 

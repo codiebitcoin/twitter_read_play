@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api.js';
 import { t } from '../../i18n.js';
 import { useToastErr, useToastOk } from '../../toast.jsx';
@@ -13,6 +13,12 @@ import { SHOW_LIVE } from '../../features.js';
 //   2. Live 上游配置（目标 + 渠道 + 弹幕）
 //   3. 通用播报设置（TTS/Chat、语言、重复、过滤）
 // 凭据/渠道本身统一在系统设置 → Feed / Live 管理；这里只选「用哪个渠道」。
+
+// 平台 → 内置浏览器 provider（与 AccountLookup 一致）；没有映射的平台（rss）不显示选用户按钮。
+const PICK_PROVIDER = {
+  x: 'x', twitter: 'x', weibo: 'weibo', xiaohongshu: 'xiaohongshu',
+  instagram: 'instagram', truth: 'truth', bluesky: 'bluesky', bilibili: 'bilibili',
+};
 export default function SettingsTab({ role, machines, onSaved, llmReady: llmReadyProp }) {
   const toastOk = useToastOk();
   const toastErr = useToastErr();
@@ -30,7 +36,8 @@ export default function SettingsTab({ role, machines, onSaved, llmReady: llmRead
     language: role.language || 'en',
     speak_prompt: role.speak_prompt || '',
     speak_rewrite: role.speak_rewrite ? '1' : '0',
-    speak_mode: role.speak_mode || 'chat',
+    // 播报模式默认 TTS 直读（与后端新角色默认一致；旧角色未显式选过也按 TTS 展示）
+    speak_mode: role.speak_mode || 'tts',
     // 播报模板按模式拆两个字段（后端 speak_text_template_chat / speak_text_template_tts）：
     // 切换 Playback mode 时各展示、各编辑、各保存，互不覆盖。旧版单一 speak_template
     // 已由后端启动时迁入 chat 字段，这里只读新字段。
@@ -61,6 +68,10 @@ export default function SettingsTab({ role, machines, onSaved, llmReady: llmRead
   const [channels, setChannels] = useState({ feed: [], live: [] });
   const [setup, setSetup] = useState(null);
   const [section, setSection] = useState('feed');
+  // 「打开浏览器选用户」：桌面模式才能开内置窗；选定后后端直接写库，这里轮询同步进表单。
+  const [desktop, setDesktop] = useState(false);
+  const [pickWaiting, setPickWaiting] = useState(false);
+  const pickPoll = useRef(null);
 
   // LLM 是否配置齐全：决定了播报口语化开关显不显示（父组件没传时自己拉）
   const [llmReadyLocal, setLlmReadyLocal] = useState(false);
@@ -80,6 +91,14 @@ export default function SettingsTab({ role, machines, onSaved, llmReady: llmRead
       setPcMode(!!st.pc_mode);
       setSetup(st);
     }).catch(() => {});
+  }, []);
+
+  // 桌面端才能开内置选用户窗（与 AccountLookup 的判断一致）
+  useEffect(() => {
+    api('/api/browser/session')
+      .then((s) => setDesktop(!!(s && s.available)))
+      .catch(() => setDesktop(false));
+    return () => { if (pickPoll.current) clearInterval(pickPoll.current); };
   }, []);
 
   // 真实渠道列表：Feed / Live 各自一个域；不再使用旧的 /api/upstreams（新模型下为空）。
@@ -163,6 +182,48 @@ export default function SettingsTab({ role, machines, onSaved, llmReady: llmRead
       toastOk(t('saved'));
       onSaved && onSaved();
     } catch (e) { toastErr(e.message); }
+  };
+
+  // 打开内置浏览器选用户：后端开一个注入「选定当前用户」按钮的窗口，
+  // 用户浏览到目标主页点按钮后，后端直接把用户写进角色（feed_target/platform/username），
+  // 这里轮询角色把新值同步进表单并提示。窗口由后端在选定后自动关闭。
+  const openPickUser = async () => {
+    if (!desktop) { toastErr(t('pickUserNeedDesktop')); return; }
+    if (pickWaiting) return;
+    setPickWaiting(true);
+    try {
+      await api('/api/source/pick', { method: 'POST', body: JSON.stringify({ role_id: role.id }) });
+      toastOk(t('pickUserOpened'));
+    } catch (e) {
+      toastErr(e.message);
+      setPickWaiting(false);
+      return;
+    }
+    if (pickPoll.current) clearInterval(pickPoll.current);
+    const before = { target: f.feed_target || '', started: Date.now() };
+    pickPoll.current = setInterval(async () => {
+      try {
+        const rr = await api(`/api/roles/${role.id}`);
+        if (rr && (rr.feed_target || '') !== before.target) {
+          clearInterval(pickPoll.current);
+          pickPoll.current = null;
+          setPickWaiting(false);
+          setF((cur) => ({
+            ...cur,
+            feed_target: rr.feed_target || '',
+            username: rr.username || cur.username,
+            platform: uiPlatform(rr.platform) || cur.platform,
+          }));
+          toastOk(t('pickUserDone').replace('%s', rr.username || rr.feed_target || ''));
+          return;
+        }
+      } catch { /* 忽略单次失败 */ }
+      if (Date.now() - before.started > 600000) {
+        clearInterval(pickPoll.current);
+        pickPoll.current = null;
+        setPickWaiting(false);
+      }
+    }, 2000);
   };
 
   const feedChannels = channelOptions(channels.feed, f.platform, f.feed_channel_id);
@@ -260,6 +321,14 @@ export default function SettingsTab({ role, machines, onSaved, llmReady: llmRead
               expectedPlatform={f.platform}
               placeholder={normPlatform(f.platform) === 'rss' ? t('usernamePhRss') : t('usernamePh')}
             />
+            {PICK_PROVIDER[normPlatform(f.platform)] ? (
+              <div className="account-actions">
+                <button className="mini ghost" type="button" onClick={openPickUser} disabled={pickWaiting}>
+                  {pickWaiting ? t('pickUserWaiting') : t('pickUserOpen')}
+                </button>
+                <span className="hint">{t('pickUserHint')}</span>
+              </div>
+            ) : null}
           </div>
           <label className="field">{t('monitorWay')}
             <select value={f.monitor_way} onChange={set('monitor_way')}>

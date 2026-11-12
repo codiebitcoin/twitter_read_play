@@ -136,6 +136,22 @@ func (s *Server) logoutBrowserSession(w http.ResponseWriter, r *http.Request) {
 	s.json(w, map[string]bool{"ok": true})
 }
 
+// closeBrowserSession POST /api/browser/session/{provider}/close
+// 登录成功后前端延迟 5 秒调用：自动关掉登录窗（Web 模式无本地窗，CloseLogin 为空操作）。
+func (s *Server) closeBrowserSession(w http.ResponseWriter, r *http.Request) {
+	if !s.browserAvailable() {
+		s.err(w, http.StatusNotImplemented, errStr("desktop_only"))
+		return
+	}
+	p := browser.Provider(r.PathValue("provider"))
+	if !browser.ValidProvider(p) {
+		s.err(w, http.StatusBadRequest, errStr("未知平台: "+string(p)))
+		return
+	}
+	s.Browser.CloseLogin(p)
+	s.json(w, map[string]bool{"ok": true})
+}
+
 func keysOf(m map[string]string) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

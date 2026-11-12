@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"twitter_read_play/internal/dbg"
 )
 
 // OpenLogin 打开可见登录窗口（已有则显示并聚焦）。
@@ -38,6 +40,7 @@ func (m *Manager) OpenLogin(ctx context.Context, p Provider) error {
 	m.mu.Lock()
 	m.login[p] = w
 	m.mu.Unlock()
+	dbg.Logf("login: 打开 %s 登录窗 url=%s", p, cfg.LoginURL)
 	// 用户关掉登录窗 ≈ 登录流程结束：立刻用工作窗探测一次并持久化状态。
 	// 前端不需要等下一次手动「检测」，正在轮询的识别卡/登录状态条会马上看到结果。
 	w.OnClosed(func() {
@@ -57,10 +60,23 @@ func (m *Manager) OpenLogin(ctx context.Context, p Provider) error {
 			if st, err := m.Probe(ctx, p); err == nil && st.Connected {
 				// 登录成功：已经打开的「查看账号」窗口可能停在登录页，刷新成目标页。
 				m.reloadViewsForProvider(p)
+			} else {
+				dbg.Logf("login: %s 登录窗关闭后的探测未确认登录 err=%v status=%+v", p, err, st)
 			}
 		}()
 	})
 	return nil
+}
+
+// CloseLogin 关闭登录窗（登录成功后前端延迟几秒调用，自动收尾）。
+// Destroy 会触发 OnClosed 里已有的清理：清 map、补一次探测、刷新该平台查看窗。
+func (m *Manager) CloseLogin(p Provider) {
+	m.mu.Lock()
+	w := m.login[p]
+	m.mu.Unlock()
+	if w != nil && !w.IsDestroyed() {
+		w.Destroy()
+	}
 }
 
 // Probe 用工作窗口判断登录态。
@@ -97,13 +113,20 @@ func (m *Manager) Probe(ctx context.Context, p Provider) (Status, error) {
 		// 导航提交瞬间 Eval 会报 "Completion handler for function call is no longer
 		// reachable" 之类的竞态错误；等一拍重试一次，仍失败就保留上一次状态。
 		// 远程 tab 丢失时第一次失败已把窗口标记销毁，重试前先重开工作窗。
+		dbg.Logf("probe: %s 探针执行失败（将重试一次）err=%v", p, err)
 		if sleepCtx(ctx, 700*time.Millisecond) {
 			if w2, werr := m.ensureWork(ctx, p); werr == nil {
 				raw, err = evalMap(ctx, w2, cfg.ProbeJS)
 			}
 		}
 	}
-	return m.setStatus(p, applyProbeResult(prev, raw, err, time.Now())), nil
+	next := m.setStatus(p, applyProbeResult(prev, raw, err, time.Now()))
+	if dbg.Enabled() {
+		rawJSON, _ := json.Marshal(raw)
+		dbg.Logf("probe: %s raw=%s → state=%s connected=%v account=%q err=%q",
+			p, dbg.Head(string(rawJSON), 300), next.LoginState(), next.Connected, next.Account, next.Error)
+	}
+	return next, nil
 }
 
 // applyProbeResult 把一次探针结果合并到旧状态上。

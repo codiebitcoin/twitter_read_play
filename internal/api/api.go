@@ -75,6 +75,10 @@ type Server struct {
 	// Origin 固定的对外 origin（http://localhost:真实端口，桌面模式由 ServeDesktop 注入）。
 	// 非空时 OAuth 回调一律用它拼，不跟随请求 Host —— PC 端回调 host 固定不可编辑。
 	Origin string
+
+	// LogPath 桌面模式日志文件（logs/desktop.log），日志模块 zip 下载用。
+	// 服务模式为空：日志走 stdout，没有文件可打包（zip 里放说明）。
+	LogPath string
 }
 
 const sessionCookie = "trp_session"
@@ -122,6 +126,8 @@ func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) { s.json(w, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("POST /api/login", s.login)
+	// 日志模块：设置页一键下载日志 zip（debug 排障用）
+	mux.HandleFunc("GET /api/logs/download", s.downloadLogs)
 	mux.HandleFunc("POST /api/logout", s.logout)
 	// 首次设置账号（M3：去掉默认密码后的初始化入口）；状态查询给登录页切换表单用
 	mux.HandleFunc("GET /api/auth/status", s.authStatus)
@@ -207,6 +213,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/source/resolve", s.resolveSource)
 	mux.HandleFunc("POST /api/source/inspect", s.inspectSource)
 	mux.HandleFunc("POST /api/source/view", s.viewSource)
+	mux.HandleFunc("POST /api/source/pick", s.pickSource)
 	mux.HandleFunc("GET /api/source/bindings", s.listBindings)
 
 	// 桌面内置浏览器会话（登录/探针/token/退出）
@@ -216,6 +223,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/browser/session/{provider}/probe", s.probeBrowserSession)
 	mux.HandleFunc("GET /api/browser/session/{provider}/tokens", s.browserTokens)
 	mux.HandleFunc("POST /api/browser/session/{provider}/logout", s.logoutBrowserSession)
+	mux.HandleFunc("POST /api/browser/session/{provider}/close", s.closeBrowserSession)
 
 	// 日志 / 设置 / 配置状态（首页「导航页」一次拿全，避免串 3 个请求）
 	mux.HandleFunc("GET /api/logs", s.listLogs)

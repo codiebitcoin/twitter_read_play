@@ -50,6 +50,7 @@ export function BrowserLoginBar({ domain }) {
 
   // 登录窗关闭后后端会主动 Probe 一次；这里持续轮询，拿到明确结论就提示并刷新整条状态。
   // 未登录也要有反馈：否则用户关窗后页面看起来「什么都没发生」。
+  // 检测到登录后等 5 秒再自动关掉登录窗（后端 close 接口；Web 模式下是空操作）。
   const poll = (p) => {
     let tries = 0;
     let sawConnected = false;
@@ -61,6 +62,9 @@ export function BrowserLoginBar({ domain }) {
           sawConnected = true;
           clearInterval(timer);
           toastOk(`${t('browserConnected')} · ${s.account || p}`);
+          setTimeout(() => {
+            api(`/api/browser/session/${encodeURIComponent(p)}/close`, { method: 'POST' }).catch(() => {});
+          }, 5000);
           load();
           return;
         }
@@ -70,8 +74,8 @@ export function BrowserLoginBar({ domain }) {
           load();
         }
       } catch { /* 登录页导航中，忽略 */ }
-      if (tries > 120) clearInterval(timer);
-    }, 1500);
+      if (tries > 60) clearInterval(timer);
+    }, 3000);
   };
 
   const open = async (p) => {

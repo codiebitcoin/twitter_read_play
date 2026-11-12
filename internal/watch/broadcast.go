@@ -397,13 +397,13 @@ func (m *Manager) broadcast(ctx context.Context, r *model.Role, b model.Binding,
 		}
 		tRewrite = time.Since(rwStart)
 	}
-	// 播报通道：默认按固件版本自动分发（≥1.5.3 → chat/turns，<1.5.3 → tts_audition）；
-	// 角色可用 speak_mode 显式指定：tts=TTS 直读（≥1.5.3 走独立文本播报 tts/utterances，
-	// <1.5.3 回退 tts_audition 试听通道），chat=LLM+TTS 管线。
+	// 播报通道：默认 TTS 直读（绕过设备 LLM；≥1.5.3 走独立文本播报 tts/utterances，
+	// <1.5.3 回退 tts_audition 试听通道）。角色可用 speak_mode 显式指定 chat=LLM+TTS 管线；
+	// speak_mode 为空（旧角色「按固件自动」的语义已废弃）与 "tts" 一样按 TTS 直读处理。
 	// 通道要先于文本转换算好：播报模板按通道取字段（speak_text_template_chat/tts）。
 	override := strings.ToLower(strings.TrimSpace(r.SpeakMode))
 	mode := playbackModeOf(c.PredictPlayChatChannel())
-	if override == "tts" {
+	if override != "chat" {
 		mode = "tts"
 	}
 	// <1.5.3 固件不支持 chat/turns：选了 chat 也只能回退 tts（前端会禁用该选项，这里是兜底）

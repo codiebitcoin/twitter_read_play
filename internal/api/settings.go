@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"twitter_read_play/internal/dbg"
 	"twitter_read_play/internal/netcfg"
 	"twitter_read_play/internal/source"
 )
@@ -45,6 +46,8 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 		// Web 模式远程浏览器上游（chrome-driverless）
 		"chrome_driverless_url":   s.mustSetting("chrome_driverless_url"),
 		"chrome_driverless_proxy": s.mustSetting("chrome_driverless_proxy"),
+		// Debug 日志开关（实时生效，不用重启）
+		"debug": dbg.Enabled(),
 	})
 }
 
@@ -149,6 +152,12 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if proxyTouched {
 		s.applyNet()
+	}
+	// Debug 日志开关：保存即生效（重启后由 Build 从库里恢复）
+	if v, ok := in["debug"]; ok {
+		on := strings.TrimSpace(v) == "1" || strings.EqualFold(strings.TrimSpace(v), "true")
+		_ = s.Store.SetSetting("debug", map[bool]string{true: "1", false: ""}[on])
+		dbg.Set(on)
 	}
 	// 新渠道模型：把 socialdata key/base 同步到默认渠道（迁移期两套并存）。
 	if s.Channels != nil {

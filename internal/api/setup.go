@@ -26,6 +26,7 @@ type setupStatusResponse struct {
 	BrowserReady    bool   `json:"browser_ready"`    // 内置浏览器可用（桌面模式）
 	BrowserLoggedIn int    `json:"browser_logged_in"` // 已登录的平台数
 	PCMode          bool   `json:"pc_mode"`          // PC 模式：无公网回调，前端隐藏 webhook 配置
+	Desktop         bool   `json:"desktop"`          // 桌面窗口模式：前端只在这里显示「日志」模块（debug + zip 下载）
 	HostOS          string `json:"host_os"`          // 服务端所在系统（darwin/linux/windows）：macOS 上配对前要提示「本地网络」授权
 }
 
@@ -72,6 +73,7 @@ func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	out.DataSourceReady = out.SocialdataReady || out.BrowserLoggedIn > 0
 	out.PCMode = s.PCMode
+	out.Desktop = s.Desktop
 	out.HostOS = runtime.GOOS
 
 	s.json(w, out)

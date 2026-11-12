@@ -8,7 +8,18 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"twitter_read_play/internal/dbg"
 )
+
+// safeLogURL 去掉 query / fragment 再记日志：URL 里可能带 code、token。
+func safeLogURL(raw string) string {
+	if u, err := url.Parse(raw); err == nil && u.Scheme != "" {
+		u.RawQuery, u.Fragment, u.User = "", "", nil
+		return u.String()
+	}
+	return raw
+}
 
 // Fetch 在 provider 页面 origin 内执行 fetch(credentials:'include')。
 func (m *Manager) Fetch(ctx context.Context, p Provider, req Request) (Response, error) {
@@ -56,12 +67,20 @@ func (m *Manager) Fetch(ctx context.Context, p Provider, req Request) (Response,
 })()`, uJSON, mJSON, hJSON, bodyJS)
 	raw, err := m.evalMapWork(ctx, p, code)
 	if err != nil {
+		dbg.Logf("fetch: %s %s 失败 err=%v", p, method, safeLogURL(target.String()))
 		return Response{}, err
 	}
-	return Response{
+	resp := Response{
 		Status: int(floatValue(raw["status"])),
 		Body:   []byte(stringValue(raw["body"])),
-	}, nil
+	}
+	if dbg.Enabled() {
+		dbg.Logf("fetch: %s %s → %d %s", p, method, resp.Status, safeLogURL(target.String()))
+		if resp.Status >= 400 {
+			dbg.Logf("fetch: 响应头 200 字节: %s", dbg.Head(string(resp.Body), 200))
+		}
+	}
+	return resp, nil
 }
 
 // Capture 导航目标页、滚动、取回命中的 XHR/GraphQL 响应。

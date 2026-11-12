@@ -8,6 +8,7 @@ import { useNav } from '../../App.jsx';
 import { SHOW_LIVE } from '../../features.js';
 import { BrowserLoginBar } from './BrowserLogin.jsx';
 import { ChannelsSection } from './Channels.jsx';
+import { LogsCard } from './LogsCard.jsx';
 
 export function AccountTab({ st, onSaved }) {
   const toastOk = useToastOk();
@@ -196,6 +197,8 @@ export function AdvancedTab({ st, onSaved }) {
         <p className="hint">{t('noHTTPHint')}</p>
         <div className="card-actions"><button onClick={saveNet}>{t('save')}</button></div>
       </div>
+      {/* 日志模块（debug + zip 下载）只在桌面端显示：服务模式日志走 stdout，没有文件可下载 */}
+      {st.desktop && <LogsCard st={st} onSaved={onSaved} />}
       <div className="card" style={{ maxWidth: 520, marginTop: 16 }} id="llm-api">
         <b>{t('llmTitle')}</b>
         <label className="field" style={{ marginTop: 8 }}>{t('llmBaseUrl')}

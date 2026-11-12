@@ -389,6 +389,12 @@ func (m *Manager) normalize() bool {
 			r.ParodyPrompt = model.DefaultParodyPrompt
 			changed = true
 		}
+		// 内置种子角色：播报模式为空（旧的「按固件自动」）则补成 tts 直读（同样只补一次，
+		// 用户显式选过 chat/tts 就不动）。默认播报通道已从「固件自动（≥1.5.3=chat）」改为 tts。
+		if r.ID == assets.SeedRoleID && strings.TrimSpace(r.SpeakMode) == "" {
+			r.SpeakMode = "tts"
+			changed = true
+		}
 		// Voice/VRM 来源模式：旧数据没有这个字段。已有本地/绑定音色或本地 VRM 的角色
 		// 视为 custom（保持升级前的同步行为），其余为原 slot（默认）。
 		if r.VoiceVrmMode != model.VoiceVrmModeSlot && r.VoiceVrmMode != model.VoiceVrmModeCustom {
@@ -436,6 +442,7 @@ func presets() []*Role {
 			Sex:                model.SexMale,             // 形象性别 Masculine：check 会按这个值校验并修正设备端
 			AnimationIntensity: model.AnimIntensityHigh,   // 动作强度默认 STRONG（设备默认）
 			ParodyPrompt:       model.DefaultParodyPrompt, // 内置角色预填默认生成 prompt
+			SpeakMode:          "tts",                     // 播报模式默认 TTS 直读（不经设备 LLM）
 			VoiceVrmMode:       model.VoiceVrmModeCustom,  // 种子角色自带 VRM/语音样本
 		},
 	}
