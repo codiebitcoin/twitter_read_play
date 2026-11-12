@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api.js';
-import { t } from '../../i18n.js';
+import { t, getLang } from '../../i18n.js';
 import { useToastErr, useToastOk } from '../../toast.jsx';
 import { useNav } from '../../App.jsx';
 import { putRole, KNOWN_PLATFORMS, normPlatform, uiPlatform, liveHasUserLevel } from './shared.js';
@@ -192,7 +192,8 @@ export default function SettingsTab({ role, machines, onSaved, llmReady: llmRead
     if (pickWaiting) return;
     setPickWaiting(true);
     try {
-      await api('/api/source/pick', { method: 'POST', body: JSON.stringify({ role_id: role.id }) });
+      // lang：窗口里注入的「选定当前用户」按钮/回显文案跟随界面语言（后端 en 兜底）
+      await api('/api/source/pick', { method: 'POST', body: JSON.stringify({ role_id: role.id, lang: getLang() }) });
       toastOk(t('pickUserOpened'));
     } catch (e) {
       toastErr(e.message);

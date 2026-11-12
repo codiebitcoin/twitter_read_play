@@ -117,7 +117,7 @@ func waitPickSettled(t *testing.T, d *fakePickDriver, check func() bool, desc st
 // 点击用户主页 → 解析出 @elonmusk 写进角色（feed_target/platform/username），窗口自动关闭。
 func TestPickUserWritesRoleAndCloses(t *testing.T) {
 	s, drv := newPickTestServer(t)
-	rec := pickPost(t, s, `{"role_id":"r1"}`)
+	rec := pickPost(t, s, `{"role_id":"r1","lang":"en"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("pick status = %d, body = %s", rec.Code, rec.Body.String())
 	}
@@ -151,7 +151,7 @@ func TestPickUserWritesRoleAndCloses(t *testing.T) {
 // 点击非用户主页（x.com/home 在保留路径里）→ 不写库、不关窗，回显错误文案。
 func TestPickRejectsNonProfilePage(t *testing.T) {
 	s, drv := newPickTestServer(t)
-	if rec := pickPost(t, s, `{"role_id":"r1"}`); rec.Code != http.StatusOK {
+	if rec := pickPost(t, s, `{"role_id":"r1","lang":"zh"}`); rec.Code != http.StatusOK {
 		t.Fatalf("pick status = %d", rec.Code)
 	}
 	drv.mu.Lock()

@@ -52,7 +52,7 @@ func (s *Server) openBrowserLogin(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 		err = s.Browser.RemoteLogin(ctx, p)
 	} else {
-		err = s.Browser.OpenLogin(r.Context(), p)
+		err = s.Browser.OpenLogin(r.Context(), p, lang(r))
 	}
 	if err != nil {
 		s.err(w, http.StatusBadRequest, err)

@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"twitter_read_play/internal/i18n"
 )
 
 // loginPreload 登录窗注入：按平台需要屏蔽 WebAuthn，并在页面顶部挂一条提示。
-func loginPreload(cfg providerConfig) string {
+func loginPreload(cfg providerConfig, lang string) string {
 	var b strings.Builder
 	if cfg.DisableWebAuthn {
 		// Google 检测到 WebAuthn 可用就优先走通行密钥，而 WKWebView 里没有平台
@@ -23,7 +25,7 @@ func loginPreload(cfg providerConfig) string {
   } catch (e) {}
 })();`)
 	}
-	if cfg.LoginHint != "" {
+	if cfg.LoginHintKey != "" {
 		b.WriteString(fmt.Sprintf(`(() => {
   const tip = %s;
   const show = () => {
@@ -38,7 +40,7 @@ func loginPreload(cfg providerConfig) string {
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
   else show();
-})();`, strconv.Quote(cfg.LoginHint)))
+})();`, strconv.Quote(i18n.T(lang, cfg.LoginHintKey))))
 	}
 	return b.String()
 }
@@ -46,12 +48,12 @@ func loginPreload(cfg providerConfig) string {
 // PickPreload 选用户窗注入：右下角悬浮一个「选定当前用户」按钮。
 // 点击把当前 href 记到 window.__trpPick，由 Go 侧 WatchPick 每秒轮询取走；
 // Go 解析完调 window.__trpPickResult(ok, msg) 把结果回显在按钮上。
-// 文案与 LoginHint 一样用中文硬编码（Go 侧注入，不走前端 i18n）。
-func PickPreload() string {
-	return `(() => {
+// 文案走 internal/i18n（随选用户的请求带语言，en 兜底）。
+func PickPreload(lang string) string {
+	return fmt.Sprintf(`(() => {
   if (window.__trpPickInstalled) return;
   window.__trpPickInstalled = true;
-  const LABEL = '📌 选定当前用户';
+  const LABEL = %s;
   const show = () => {
     if (document.getElementById('__trp_pick_btn')) return;
     const b = document.createElement('button');
@@ -62,7 +64,7 @@ func PickPreload() string {
       + 'border:none;border-radius:22px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)';
     b.onclick = () => {
       window.__trpPick = { href: location.href, at: Date.now() };
-      b.textContent = '⏳ 识别中…';
+      b.textContent = %s;
     };
     window.__trpPickResult = (ok, msg) => {
       b.textContent = (ok ? '✓ ' : '✗ ') + msg;
@@ -72,7 +74,7 @@ func PickPreload() string {
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
   else show();
-})();`
+})();`, strconv.Quote(i18n.T(lang, "pick.button")), strconv.Quote(i18n.T(lang, "pick.detecting")))
 }
 
 // capturePreload 注入工作窗口：劫持 fetch / XMLHttpRequest，把命中的响应

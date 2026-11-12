@@ -66,7 +66,7 @@ func (w *loginCloseWindow) closeByUser() {
 func TestOpenLoginCloseTriggersProbe(t *testing.T) {
 	d := &loginCloseDriver{available: true}
 	m := NewManager(d, nil)
-	if err := m.OpenLogin(context.Background(), ProviderX); err != nil {
+	if err := m.OpenLogin(context.Background(), ProviderX, "en"); err != nil {
 		t.Fatal(err)
 	}
 	if d.login == nil {
@@ -96,7 +96,7 @@ func TestLoginCloseReloadsOpenView(t *testing.T) {
 	if d.view == nil {
 		t.Fatal("view window not opened")
 	}
-	if err := m.OpenLogin(context.Background(), ProviderX); err != nil {
+	if err := m.OpenLogin(context.Background(), ProviderX, "en"); err != nil {
 		t.Fatal(err)
 	}
 	d.login.closeByUser()

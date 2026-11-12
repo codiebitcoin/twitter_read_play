@@ -140,4 +140,28 @@ func init() {
 	Add("err.adapter_no_domain", map[string]string{
 		"en": "Adapter %s declares no usable feed/live domain", "ja": "アダプター %s に利用可能な feed/live ドメインがありません", "zh": "适配器 %s 没有可用的 feed/live 域",
 	})
+	// 登录窗顶栏提示（Go 注入 WebView，随打开登录窗的请求带语言）
+	Add("login.hint.x", map[string]string{
+		"en": "If a CAPTCHA or an “Check your login info” checkpoint appears, complete it in this window (or confirm from the phone app). Once you see the home feed, feel free to close this window.",
+		"ja": "認証コードや「ログイン情報を確認」の検証が出たら、このウィンドウ内で完了してください（スマホアプリで承認してもOK）。ホームのフィードが見えたらこのウィンドウを閉じましょう。",
+		"zh": "如遇到验证码或「检查登录信息」验证，请在这个窗口里完成（或在手机 App 点确认），看到首页信息流后再关闭窗口",
+	})
+	Add("login.hint.instagram", map[string]string{
+		"en": "Sign in with password + verification code (passkeys are not available in the built-in browser).",
+		"ja": "「パスワード＋認証コード」でログインしてください（内蔵ブラウザではパスキーは使えません）。",
+		"zh": "请用「密码 + 验证码」登录（通行密钥在桌面内置浏览器里不可用）",
+	})
+	// 选用户窗（Go 注入 WebView 的按钮与回显文案）
+	Add("pick.button", map[string]string{
+		"en": "📌 Pick this user", "ja": "📌 このユーザーに指定", "zh": "📌 选定当前用户",
+	})
+	Add("pick.detecting", map[string]string{
+		"en": "⏳ Detecting…", "ja": "⏳ 判定中…", "zh": "⏳ 识别中…",
+	})
+	Add("pick.picked", map[string]string{
+		"en": "Picked %s", "ja": "%s を選択しました", "zh": "已选定 %s",
+	})
+	Add("pick.not_profile", map[string]string{
+		"en": "This page is not a user profile", "ja": "このページはユーザーのプロフィールではありません", "zh": "当前页面不是用户主页",
+	})
 }

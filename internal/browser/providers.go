@@ -45,8 +45,8 @@ type providerConfig struct {
 	// LogoutJS 没有服务端登出 URL 的平台（Bluesky 把会话存在 localStorage）
 	// 在销毁工作窗前执行：否则下次探测又会把旧会话读回来。
 	LogoutJS string
-	// LoginHint 登录窗里给用户的提示。
-	LoginHint string
+	// LoginHintKey 登录窗顶栏提示的 i18n 词条 key（文案在 internal/i18n，en 兜底）。
+	LoginHintKey string
 	// LoginOptional 未登录也能抓公开数据（微博/Truth Social）。前端据此
 	// 把「登录后可用」换成「游客态也可用」，不误导用户去登录。
 	LoginOptional bool
@@ -211,7 +211,7 @@ var providerConfigs = map[Provider]providerConfig{
 		// Instagram 也会用通行密钥；WKWebView 没有平台认证器，屏蔽后回落到密码 + 验证码。
 		DisableWebAuthn: true,
 		// 只输入密码不算登录成功：Instagram 在验证码/手机确认之后才写 sessionid。
-		LoginHint: "如遇到验证码或「检查登录信息」验证，请在这个窗口里完成（或在手机 App 点确认），看到首页信息流后再关闭窗口",
+		LoginHintKey: "login.hint.x",
 	},
 	ProviderTruth: {
 		Name:      "Truth Social",
@@ -329,7 +329,7 @@ var providerConfigs = map[Provider]providerConfig{
 		// Google 按 UA 分支：伪装成 Chrome 会走到只给 Chrome 的登录接口，
 		// 保持 Safari UA 与 WKWebView 引擎一致最稳。
 		UserAgent: safariUA,
-		LoginHint: "请用「密码 + 验证码」登录（通行密钥在桌面内置浏览器里不可用）",
+		LoginHintKey: "login.hint.instagram",
 	},
 	ProviderBilibili: {
 		Name:      "Bilibili",

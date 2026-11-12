@@ -7,20 +7,23 @@ import (
 	"time"
 
 	"twitter_read_play/internal/browser"
+	"twitter_read_play/internal/i18n"
 	"twitter_read_play/internal/source"
 )
 
 // 角色设置 → 打开内置浏览器选用户：
-// 前端 POST /api/source/pick，这里开一个注入 PickPreload 的查看窗
-// （key=pick-<roleID>，每个角色独立一个），并挂 WatchPick 监听。
-// 用户在窗内浏览到目标主页后点右下角「选定当前用户」，回调里解析 href
-// 回写角色的 feed_target/platform/username 并自动关窗（只关这一个窗）。
+// 前端 POST /api/source/pick（body 带界面语言 lang），这里开一个注入 PickPreload
+// 的查看窗（key=pick-<roleID>，每个角色独立一个），并挂 WatchPick 监听。
+// 用户在窗内浏览到目标主页后点右下角按钮，回调里解析 href 回写角色的
+// feed_target/platform/username 并自动关窗（只关这一个窗）。
+// 注入文案与回显文案都走 internal/i18n（en 兜底）。
 
 // closePickAfter 选定成功到自动关窗的间隔：留时间让用户看到 ✓ 文案。
 const closePickAfter = 1500 * time.Millisecond
 
 type pickRequest struct {
 	RoleID string `json:"role_id"`
+	Lang   string `json:"lang"` // 界面语言（zh/ja/en）；空则回落 Accept-Language，最终 en 兜底
 }
 
 // pickSource POST /api/source/pick
@@ -32,12 +35,16 @@ func (s *Server) pickSource(w http.ResponseWriter, r *http.Request) {
 	}
 	rl, err := s.Roles.Get(strings.TrimSpace(in.RoleID))
 	if err != nil {
-		s.err(w, http.StatusNotFound, err)
+		s.err(w, http.StatusNotFound, errStr(s.tr(r, "err.role_not_found")))
 		return
 	}
 	if !s.browserAvailable() {
 		s.err(w, http.StatusNotImplemented, errStr("desktop_only"))
 		return
+	}
+	pickLang := i18n.Lang(in.Lang)
+	if strings.TrimSpace(in.Lang) == "" {
+		pickLang = lang(r) // 请求没带语言时按 Accept-Language（en 兜底）
 	}
 
 	platform := source.Platform(rl.Platform)
@@ -55,30 +62,30 @@ func (s *Server) pickSource(w http.ResponseWriter, r *http.Request) {
 		URL:           start,
 		Key:           key,
 		Provider:      browser.Provider(rl.Platform),
-		PreloadScript: browser.PickPreload(),
+		PreloadScript: browser.PickPreload(pickLang),
 	})
 	if oerr != nil {
 		s.err(w, http.StatusBadRequest, oerr)
 		return
 	}
-	s.Browser.WatchPick(key, s.pickRoleTarget(rl.ID), closePickAfter)
+	s.Browser.WatchPick(key, s.pickRoleTarget(rl.ID, pickLang), closePickAfter)
 	s.json(w, map[string]any{"ok": true, "key": vr.Key, "url": vr.URL, "reused": vr.Reused})
 }
 
 // pickRoleTarget 返回选用户回调：解析当前页 href，是合法用户主页就写进角色。
-func (s *Server) pickRoleTarget(roleID string) func(string) (bool, string) {
+func (s *Server) pickRoleTarget(roleID, lang string) func(string) (bool, string) {
 	return func(href string) (bool, string) {
 		rl, err := s.Roles.Get(roleID)
 		if err != nil {
-			return false, "角色不存在"
+			return false, i18n.T(lang, "err.role_not_found")
 		}
 		t, perr := source.ParseFeed(href, source.Platform(rl.Platform))
 		if perr != nil || t.Kind != source.KindProfile {
-			return false, "当前页面不是用户主页"
+			return false, i18n.T(lang, "pick.not_profile")
 		}
 		u, ok := t.ViewURL()
 		if !ok {
-			return false, "当前页面不是用户主页"
+			return false, i18n.T(lang, "pick.not_profile")
 		}
 		// 先对齐平台再解析：parseRoleTargets 里的平台一致性校验以 role.Platform 为准。
 		rl.Platform = string(t.Platform)
@@ -90,6 +97,6 @@ func (s *Server) pickRoleTarget(roleID string) func(string) (bool, string) {
 		if err := s.Roles.Upsert(rl); err != nil {
 			return false, err.Error()
 		}
-		return true, "已选定 " + t.ID
+		return true, strings.Replace(i18n.T(lang, "pick.picked"), "%s", t.ID, 1)
 	}
 }

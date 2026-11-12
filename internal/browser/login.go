@@ -10,8 +10,8 @@ import (
 	"twitter_read_play/internal/dbg"
 )
 
-// OpenLogin 打开可见登录窗口（已有则显示并聚焦）。
-func (m *Manager) OpenLogin(ctx context.Context, p Provider) error {
+// OpenLogin 打开可见登录窗口（已有则显示并聚焦）。lang 用于注入的顶栏提示文案。
+func (m *Manager) OpenLogin(ctx context.Context, p Provider, lang string) error {
 	if !m.Available() {
 		return fmt.Errorf("内置浏览器仅在桌面模式可用")
 	}
@@ -30,7 +30,7 @@ func (m *Manager) OpenLogin(ctx context.Context, p Provider) error {
 
 	w, err := m.driver.Open(OpenOptions{
 		Title: "登录 " + cfg.Name, URL: cfg.LoginURL,
-		PreloadScript: loginPreload(cfg),
+		PreloadScript: loginPreload(cfg, lang),
 		UserAgent:     providerUA(cfg),
 		Width:         520, Height: 760,
 	})
