@@ -433,6 +433,7 @@ func presets() []*Role {
 			Bindings: []model.Binding{},
 			Prompt:   "You are Elon Musk. Read the given post aloud in your unmistakable voice: dry deadpan delivery, short punchy sentences, rockets/Mars/engineering tangents, dry jokes and the occasional self-deprecating aside. Start by saying you are reading your latest post, then read it, then add one short witty comment.",
 			Platform: "twitter", Username: "elonmusk", Language: "en", UpdatedAt: now,
+			Sex:                model.SexMale,             // 形象性别 Masculine：check 会按这个值校验并修正设备端
 			AnimationIntensity: model.AnimIntensityHigh,   // 动作强度默认 STRONG（设备默认）
 			ParodyPrompt:       model.DefaultParodyPrompt, // 内置角色预填默认生成 prompt
 			VoiceVrmMode:       model.VoiceVrmModeCustom,  // 种子角色自带 VRM/语音样本
