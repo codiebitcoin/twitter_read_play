@@ -6,6 +6,7 @@ import { useNav } from '../App.jsx';
 import { platformLabel as locPlatformLabel } from './common/adapters.js';
 import { thumbPlaceholder } from '../vrmThumb.js';
 import SyncRoleButton from './SyncRoleButton.jsx';
+import { jumpForKey } from './roleDetail/shared.js';
 import { notifyMessageQueued } from '../messageQueue.js';
 
 function RoleRow({ role, machines, onReload }) {
@@ -35,7 +36,7 @@ function RoleRow({ role, machines, onReload }) {
         toastOk(t('bqQueued').replace('%s', (res && res.queued) || 0));
         notifyMessageQueued();
       }
-    } catch (e2) { toastErr(e2.message); }
+    } catch (e2) { if (!jumpForKey(toastErr, e2.message, role)) toastErr(e2.message); }
   };
 
   // 已知社交平台：webhook 铃铛对它们都显示（是否真支持由后端决定并返回可读错误）。

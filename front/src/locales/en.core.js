@@ -49,6 +49,7 @@ export default {
   "cantPullNoKey": "Cannot pull: no socialdata API key",
   "cantPullNoUser": "Cannot pull: no twitter username on this role",
   "goSetKey": "Set API key",
+  "keyJumpToSettings": "Taken to Settings",
   "goSetUser": "Set username",
   "needVrmVoiceHint": "No VRM and no voice sample yet — add them in Persona first",
   "needVrmHint": "No VRM yet — upload one in Persona",

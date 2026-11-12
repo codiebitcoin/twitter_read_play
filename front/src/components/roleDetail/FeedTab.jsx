@@ -3,7 +3,7 @@ import { api } from '../../api.js';
 import { t } from '../../i18n.js';
 import { useToastErr, useToastOk } from '../../toast.jsx';
 import { notifyMessageQueued } from '../../messageQueue.js';
-import { cmpIDDesc } from './shared.js';
+import { cmpIDDesc, jumpForKey } from './shared.js';
 import TweetCard from './TweetCard.jsx';
 
 // hasPendingTranslation 是否还有需要补翻译的推文（纯媒体推文无正文，永远不会有翻译）。
@@ -98,7 +98,7 @@ export default function FeedTab({ role }) {
       setTweets(rows);
       setNoMore(false);
       return rows;
-    } catch (e) { setErr(e.message); return null; }
+    } catch (e) { setErr(e.message); jumpForKey(toastErr, e.message, role); return null; }
   };
   const pollTranslations = () => {
     stopTrPoll();
@@ -112,7 +112,8 @@ export default function FeedTab({ role }) {
   // refresh 用户点「刷新推文」：拉上游最新（计费），随后短时补显后台翻译。
   const refresh = async () => {
     stopTrPoll();
-    await load(true);
+    const rows = await load(true);
+    if (!rows) return; // 拉取失败（未配 key 已 toast+跳设置）：不再进翻译补显轮询反复报错
     loadChecked();
     pollTranslations();
   };
@@ -158,8 +159,9 @@ export default function FeedTab({ role }) {
   const pollNow = async () => {
     try {
       const res = await api(`/api/roles/${role.id}/poll`, { method: 'POST' });
-      if (res && res.error) toastErr(res.error); else notifyMessageQueued();
-    } catch (e) { toastErr(e.message); }
+      if (res && res.error) { if (!jumpForKey(toastErr, res.error, role)) toastErr(res.error); }
+      else notifyMessageQueued();
+    } catch (e) { if (!jumpForKey(toastErr, e.message, role)) toastErr(e.message); }
   };
   const broadcastRandom = async () => {
     try {

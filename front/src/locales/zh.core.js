@@ -49,6 +49,7 @@ export default {
   "cantPullNoKey": "拉不到推文：没配 socialdata API Key",
   "cantPullNoUser": "拉不到推文：这个角色没设 twitter 用户名",
   "goSetKey": "去配 API Key",
+  "keyJumpToSettings": "已跳转到设置页",
   "goSetUser": "去设用户名",
   "needVrmVoiceHint": "还没有 VRM 和语音样本，先去 Persona 上传",
   "needVrmHint": "还没有 VRM，先去 Persona 上传",

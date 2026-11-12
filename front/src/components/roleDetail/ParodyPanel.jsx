@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api.js';
 import { t } from '../../i18n.js';
 import { useToastErr, useToastOk } from '../../toast.jsx';
-import { putRole } from './shared.js';
+import { putRole, jumpForKey } from './shared.js';
 import { notifyMessageQueued } from '../../messageQueue.js';
 import PoolPicker from './PoolPicker.jsx';
 
@@ -51,7 +51,7 @@ export default function ParodyPanel({ role, onSaved }) {
       toastOk(broadcast ? t('bqQueued').replace('%s', (res && res.queued) || 0) : t('parodyGenerated'));
       if (broadcast) notifyMessageQueued();
       await load();
-    } catch (e) { toastErr(e.message); }
+    } catch (e) { if (!jumpForKey(toastErr, e.message, role)) toastErr(e.message); }
     setBusy('');
   };
 

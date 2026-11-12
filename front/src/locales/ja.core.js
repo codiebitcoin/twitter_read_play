@@ -49,6 +49,7 @@ export default {
   "cantPullNoKey": "API キーが未設定",
   "cantPullNoUser": "ユーザー名が未設定",
   "goSetKey": "API キーを設定",
+  "keyJumpToSettings": "設定ページへ移動しました",
   "goSetUser": "ユーザー名を設定",
   "needVrmVoiceHint": "VRM と音声サンプルが未登録",
   "needVrmHint": "VRM 未登録",
