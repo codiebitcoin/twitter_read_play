@@ -47,6 +47,12 @@
 xattr -dr com.apple.quarantine /Applications/Twitter\ Read\ Play.app
 ```
 
+**Windows 首次打开被拦截 · Windows first-open blocked · Windows で初回起動がブロックされる**（基于声誉的保护 / reputation-based protection / 評価ベースの保護）
+
+- **中文**：安装包未做代码签名，即使开了开发者模式，Windows 的「基于声誉的保护」仍可能拦截某些 `.exe` 的安装/启动——SmartScreen 弹「Windows 已保护你的电脑」，或双击后程序打不开。可临时关闭：**设置 → 隐私和安全性 → Windows 安全中心 → 应用和浏览器控制 → 基于声誉的保护**，把 **「检查应用和文件」** 开关关掉，装完/能启动后再打开。弹窗场景也可直接点 **更多信息 → 仍要运行**。注意：关闭后会降低系统对潜在恶意软件的防御。
+- **English**: The packages are not code-signed, so even with Developer Mode on, Windows "reputation-based protection" may still block some unsigned `.exe` installs — a SmartScreen "Windows protected your PC" popup, or the app silently fails to open. To turn it off temporarily: **Settings → Privacy & security → Windows Security → App & browser control → Reputation-based protection**, switch off **Check apps and files**, and re-enable it once the app is installed/launches. On the SmartScreen popup, **More info → Run anyway** also works. Note: this lowers your defense against potential malware.
+- **日本語**: パッケージはコード署名されていないため、開発者モードを有効にしていても、Windows の「評価ベースの保護」が一部の未署名 `.exe` のインストール/起動をブロックすることがあります（SmartScreen の「Windows によって PC が保護されました」表示、またはダブルクリックしても起動しない）。一時的にオフにするには：**設定 → プライバシーとセキュリティ → Windows セキュリティ → アプリとブラウザー コントロール → 評価ベースの保護** を開き、**「アプリとファイルの確認」** をオフにして、インストール/起動が済んだら元に戻してください。SmartScreen の警告が出た場合は **詳細情報 → 実行** でも起動できます。注意：オフにすると潜在的なマルウェアへの防御が弱まります。
+
 ### 2.2 服务端（Docker）
 
 用 GHCR 现成镜像一条命令启动，浏览器访问控制台：
