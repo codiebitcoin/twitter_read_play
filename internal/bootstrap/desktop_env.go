@@ -37,6 +37,10 @@ const (
 	noProxyEnv     = "TRP_WEBVIEW_NO_PROXY"
 	noProxyMarker  = "webview_no_proxy"
 
+	disableGPUEnv = "TRP_WEBVIEW_DISABLE_GPU"
+	noGPUMarker   = "webview_disable_gpu"
+	disableGPUArg = "--disable-gpu"
+
 	// Chromium 的 --proxy-bypass-list：分号分隔，IPv6 字面量要带方括号。
 	loopbackBypassArg = "--proxy-bypass-list=localhost;127.0.0.1;[::1];<local>"
 	noProxyServerArg  = "--no-proxy-server"
@@ -87,7 +91,8 @@ func applyWebViewProxyArgs(dataDir string) string {
 	if runtime.GOOS != "windows" {
 		return ""
 	}
-	args := mergeWebViewArgs(os.Getenv(webviewArgsEnv), webViewNoProxyRequested(dataDir))
+	args := mergeWebViewArgs(os.Getenv(webviewArgsEnv),
+		webViewNoProxyRequested(dataDir), webViewSoftwareGPU(dataDir))
 	if args == "" {
 		return ""
 	}
@@ -110,12 +115,14 @@ func webViewNoProxyRequested(dataDir string) bool {
 
 // mergeWebViewArgs 合并用户已有的浏览器参数：
 //   - 用户显式配了 --no-proxy-server / --proxy-bypass-list 时不重复添加
-//   - 开关打开时追加 --no-proxy-server（与已有 bypass-list 同时存在时后者失效）
-func mergeWebViewArgs(existing string, noProxy bool) string {
+//   - noProxy 打开时追加 --no-proxy-server（与已有 bypass-list 同时存在时后者失效）
+//   - softwareGPU 打开时追加 --disable-gpu（无 GPU/远程会话下 WebView2 白屏的兜底）
+func mergeWebViewArgs(existing string, noProxy, softwareGPU bool) string {
 	existing = strings.TrimSpace(existing)
 	lower := strings.ToLower(existing)
 	hasNoProxy := strings.Contains(lower, noProxyServerArg)
 	hasBypass := strings.Contains(lower, "--proxy-bypass-list")
+	hasNoGPU := strings.Contains(lower, disableGPUArg)
 	switch {
 	case noProxy:
 		if hasNoProxy {
@@ -125,8 +132,36 @@ func mergeWebViewArgs(existing string, noProxy bool) string {
 	case hasNoProxy || hasBypass:
 		return existing
 	default:
-		return strings.TrimSpace(existing + " " + loopbackBypassArg)
+		out := strings.TrimSpace(existing + " " + loopbackBypassArg)
+		if softwareGPU && !hasNoGPU {
+			out = strings.TrimSpace(out + " " + disableGPUArg)
+		}
+		return out
 	}
+}
+
+// webViewSoftwareGPU 是否该让 WebView2 用软件渲染（--disable-gpu）。
+// 显式开关优先：环境变量 TRP_WEBVIEW_DISABLE_GPU=1 或数据目录 webview_disable_gpu
+// 标记强制开启；=0 强制关闭。未设置则自动检测：RDP 会话或全部显示适配器都是
+// 虚拟显卡（无 GPU 虚拟机）时返回 true——这类环境下 WebView2 硬件合成会输出
+// 白屏窗口（DOM 正常加载、画面全白，reload 无效）。
+func webViewSoftwareGPU(dataDir string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(disableGPUEnv))) {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	}
+	if dataDir == "" {
+		dataDir = DesktopDataDir()
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, noGPUMarker)); err == nil {
+		return true
+	}
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	return windowsSoftwareRenderingPreferred()
 }
 
 // attachMainWindowDiagnostics 给主窗口挂诊断：加载失败/RenderProcessGone 写日志，

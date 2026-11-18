@@ -13,9 +13,28 @@ func TestMergeWebViewArgs(t *testing.T) {
 		name     string
 		existing string
 		noProxy  bool
+		noGPU    bool
 		want     []string
 		absent   []string
 	}{
+		{
+			name:  "软件渲染开关追加 --disable-gpu",
+			noGPU: true,
+			want:  []string{"--disable-gpu", "--proxy-bypass-list=localhost"},
+		},
+		{
+			name:     "已有 --disable-gpu 时不重复追加",
+			existing: "--disable-gpu",
+			noGPU:    true,
+			want:     []string{"--disable-gpu"},
+		},
+		{
+			name:    "禁代理优先于 GPU 开关",
+			noProxy: true,
+			noGPU:   true,
+			want:    []string{"--no-proxy-server"},
+			absent:  []string{"--proxy-bypass-list"},
+		},
 		{
 			name: "默认只绕过回环",
 			want: []string{"--proxy-bypass-list=localhost;127.0.0.1;[::1];<local>"},
@@ -52,15 +71,15 @@ func TestMergeWebViewArgs(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := mergeWebViewArgs(tc.existing, tc.noProxy)
+			got := mergeWebViewArgs(tc.existing, tc.noProxy, tc.noGPU)
 			for _, want := range tc.want {
 				if !strings.Contains(got, want) {
-					t.Fatalf("mergeWebViewArgs(%q, %v) = %q，缺少 %q", tc.existing, tc.noProxy, got, want)
+					t.Fatalf("mergeWebViewArgs(%q, %v, %v) = %q，缺少 %q", tc.existing, tc.noProxy, tc.noGPU, got, want)
 				}
 			}
 			for _, absent := range tc.absent {
 				if strings.Contains(got, absent) {
-					t.Fatalf("mergeWebViewArgs(%q, %v) = %q，不应包含 %q", tc.existing, tc.noProxy, got, absent)
+					t.Fatalf("mergeWebViewArgs(%q, %v, %v) = %q，不应包含 %q", tc.existing, tc.noProxy, tc.noGPU, got, absent)
 				}
 			}
 		})

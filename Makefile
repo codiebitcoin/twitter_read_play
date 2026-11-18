@@ -1,4 +1,4 @@
-MYGO_VERSION := v0.4.5
+MYGO_VERSION := v0.9.0
 MYGO := go run github.com/egoist/mygo/cmd/mygo@$(MYGO_VERSION)
 
 .PHONY: build front build-go run build-docker desktop-windows desktop-linux desktop-appimage desktop-mac desktop desktop-run
