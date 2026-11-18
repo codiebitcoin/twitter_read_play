@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"fmt"
 	"log"
+	"net/url"
 
 	"github.com/egoist/mygo"
 )
@@ -42,6 +43,37 @@ func runWindow(opt Options, baseURL string, drv *mygoDriver, shutdown func()) er
 			go shutdown()
 			mygo.App.Quit()
 		})
+		// 主窗也要拦 window.open / target=_blank：OAuth 授权弹窗（X → Sign in with
+		// Google 等）必须留在应用内。mygo 默认把它们丢给系统默认浏览器（Windows 上
+		// 是 Edge），回调 302 到本地端口也就发生在浏览器里，回调页的 postMessage /
+		// window.close 全部落空，表现为「登录完没反应」。
+		// 平台登录/抓取窗在 browser_mygo.go 已有同样的 handler。
+		if page := win.Page(); page != nil {
+			page.SetWindowOpenHandler(func(req mygo.WindowOpenRequest) *mygo.WindowOptions {
+				// 空 URL / about:blank 也要放行：有的流程先 window.open('', name)
+				// 拿引用再 location.href 导航；拒掉空 URL 会让首步拿到 null。
+				u, err := url.Parse(req.URL)
+				if err != nil {
+					return nil
+				}
+				if u.Scheme != "" && u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "about" {
+					return nil
+				}
+				w, h := req.Width, req.Height
+				if w <= 0 {
+					w = 680
+				}
+				if h <= 0 {
+					h = 780
+				}
+				return &mygo.WindowOptions{
+					Title:  "Twitter Read Play",
+					Width:  w,
+					Height: h,
+					Parent: win,
+				}
+			})
+		}
 		// 白屏时不留下任何线索是最糟的情况：加载失败直接换成能看的诊断页。
 		attachMainWindowDiagnostics(win, baseURL, opt.DataDir, opt.desktopLogPath, opt.webViewArgs)
 	})

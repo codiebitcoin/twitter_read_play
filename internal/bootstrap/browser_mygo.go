@@ -75,8 +75,13 @@ func (d *mygoDriver) Open(opts browser.OpenOptions) (browser.Window, error) {
 	// 登录链路（例如 X → Sign in with Google）必须留在应用内，否则 OAuth 弹窗
 	// 和主 WebView 不是同一个 profile，登录态回不来。
 	win.Page().SetWindowOpenHandler(func(req mygo.WindowOpenRequest) *mygo.WindowOptions {
+		// 空 URL / about:blank 也要放行：有的流程先 window.open('', name)
+		// 拿引用再 location.href 导航；拒掉空 URL 会让首步拿到 null。
 		u, err := url.Parse(req.URL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		if err != nil {
+			return nil
+		}
+		if u.Scheme != "" && u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "about" {
 			return nil
 		}
 		w, h := req.Width, req.Height
