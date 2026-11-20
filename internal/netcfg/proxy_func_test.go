@@ -68,7 +68,7 @@ func TestProxyFuncBypassIPAndCIDR(t *testing.T) {
 	if u, _ := ProxyFunc(st); u != nil {
 		t.Errorf("局域网设备请求不应走代理，得到 %v", u)
 	}
-	t.Setenv("NO_PROXY", "inner.internal.example.net")
+	t.Setenv("NO_PROXY", "internal.example.com")
 	if u, _ := ProxyFunc(st); u == nil {
 		t.Error("未命中 NO_PROXY 时应走代理")
 	}

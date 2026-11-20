@@ -42,7 +42,7 @@ func envFirst(keys ...string) string {
 }
 
 // bypass 实现 NO_PROXY 的常用语义：* 全放行，逗号分隔，域名后缀匹配，
-// 以及 IP / CIDR 网段匹配（如 192.168.1.1/23：代理用于外网抓取，
+// 以及 IP / CIDR 网段匹配（如 192.168.1.0/24：代理用于外网抓取，
 // 局域网设备与内网服务必须直连）。
 // 请求的 host 不含端口，所以条目里的 :port 直接忽略。
 func bypass(host, noProxy string) bool {
