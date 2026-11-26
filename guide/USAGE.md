@@ -153,14 +153,14 @@ Role detail → **Persona**:
    - or click **⟳ Sync to Codie** — with an empty voice_id/group_key, sync auto-clones and fills it in.
 5. Cloning is a background job (minutes): while it runs, that machine's **Re-clone / Upload & clone** buttons are greyed out with **⏳ cloning · Ns**. A device runs one clone at a time (clone slots 21-25 are device-level). Success/failure pops a toast; jobs persist.
 6. `voice_id / group_key` are recorded per machine+slot 1:1, independent per machine; edit, check or re-clone inline in the binding row.
-7. Use **🔈 Check & fix** (optionally with "audition to verify the voice") to compare the device's voice/model/prompt with the role config and auto-repair differences.
+7. Use **🔈 Check & fix** (optionally with "audition to verify the voice") to compare the device's voice/model/prompt with the role config and auto-repair differences. A repair **overwrites what is currently on the device** with the role config — see the note at the end of 5.3.
 
 #### 5.2.2 Set the VRM avatar
 
 1. **Avatar image**: png/jpg/webp/gif (≤ 5 MB), shown on the role list. Choose a file and click **Upload avatar**.
 2. **VRM model**: in the VRM block choose a `.vrm` file and click **Upload & apply**. The active model is shown afterwards (e.g. `model.vrm ✓ active`).
 3. **Outfit (cloth)**: if the role has several outfits (e.g. `cloth 2`), pick one in the selector; sync/slot-switch pushes it to the device.
-4. Finally click **⟳ Sync to Codie** at the bottom to push the active prompt/voice/VRM to all enabled bindings.
+4. Finally click **⟳ Sync to Codie** at the bottom to push the active prompt/voice/VRM to all enabled bindings. Pushing **overwrites** the matching content already in that slot on the device.
 
 > Note: sync sends no outfit-conflict fields. If the device replies `OUTFIT_APPLY_REQUIRED`, confirm the outfit on the device first, then sync again.
 
@@ -173,7 +173,16 @@ Role detail → **Status**:
 1. Pick the **machine** dropdown + the **role slot** number, click **+ Add binding**.
 2. A role can bind several slots across machines (n→1); only **checked** bindings take part in automatic broadcast and sync.
 3. Expand a binding row (▶) to edit that machine+slot's voice_id / group_key, check, or re-clone.
-4. After voice/VRM are set, click **⟳ Sync to Codie** to push the role bundle; click **🔈 Check & fix** to verify and repair differences.
+4. After voice/VRM are set, click **⟳ Sync to Codie** to push the role bundle; click **🔈 Check & fix** to verify and repair differences. Both **overwrite** the existing content in that slot on the device — see the table below.
+
+**Sync / Check overwrites what the device already has in the slot** (this role's config wins):
+
+| Voice / VRM source | Overwritten | Kept |
+|---|---|---|
+| Original slot (default) | Name, description, system prompt, sex, animation intensity and TTS volume of the selected slot | The device's existing VRM model and voice |
+| Role custom | Everything above, plus the VRM model (overwritten) and the voice (cloned) | — |
+
+> Check shows a confirmation that spells out what will be overwritten. To keep the device's own avatar and voice, stay in "Original slot" mode.
 
 ### 5.4 Settings: broadcast parameters
 
